@@ -1,0 +1,30 @@
+package com.wuweiqiu.demo;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.web.servlet.HandlerInterceptor;
+
+import javax.crypto.SecretKey;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.nio.charset.StandardCharsets;
+public class LoginInterceptor implements HandlerInterceptor{
+    private static final String SECRET ="this-is-my-very-long-secret-key-for-jwt-1234567890";
+    @Override
+    public boolean preHandle(HttpServletRequest request,HttpServletResponse response,Object handler)throws Exception{
+        String token = request.getHeader("Authorization");
+        if (token == null || !token.startsWith("Bearer ")){
+            response.setStatus(401);
+            return false;
+        }
+        token = token.substring(7);
+        try{
+            SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+            Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
+            return true;
+        }catch (Exception e){
+            response.setStatus(401);
+            return false;
+        }
+
+    }
+}

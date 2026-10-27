@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>作业管理系统</title>
+</head>
+<body>
+    <h1>作业管理系统</h1>
+    <input id="loginUsername" placeholder="用户名">
+    <input id="loginPassword" placeholder="密码">
+    <button onclick="login()">登录</button>
+
+    <input id="nameInput" placeholder="输入作业名">
+    <button onclick="addHomework()">添加</button>
+
+    <input id="deleteInput" placeholder="输入要删除的作业的ID">
+    <button onclick="deleteHomework()">删除</button>
+
+    <input id="updateIDInput" placeholder="输入要修改的作业的ID">
+    <input id="updateNameInput" placeholder="输入要修改的作业的名称">
+    <button onclick="updateHomework()">修改</button>
+
+    <h2>AI 题库检查</h2>
+    <textarea id="questionInput" placeholder="粘贴题目：题干+选项+答案" rows="5" cols="40"></textarea>
+    <button onclick="checkQuestion()">AI 检查</button>
+    <div id="checkResult"></div>
+
+    <div id="homeworklist"></div>
+    <script>
+        function login(){
+            var username = document.getElementById("loginUsername").value;
+            var password = document.getElementById("loginPassword").value;
+            fetch("/login?username="+username+"&password="+password,{method:"POST"})
+                .then(
+                    function (response){
+                        return response.text();
+                    }
+                )
+                .then(
+                    function (data){
+                        localStorage.setItem("token",data);
+                        alert("登录成功");
+                        loadHomework();
+                    }
+                );
+
+        }
+        function loadHomework() {
+            var token = localStorage.getItem("token");
+            fetch("/homework",{
+                headers:{"Authorization":"Bearer "+token}
+                })
+
+                .then(function (response) {
+                    return response.text();
+                })
+                .then(function (data) {
+                        document.getElementById("homeworklist").innerHTML = data;
+                    }
+                );
+        }
+        function addHomework(){
+            var name = document.getElementById("nameInput").value;
+            var token =localStorage.getItem("token");
+            fetch("/homework/add?name="+name
+                ,{method:"POST"
+                ,headers:{"Authorization":"Bearer "+token}}
+            )
+                .then(
+                    function (response){
+                        return response.text();
+                    }
+
+                )
+                .then(
+                    function (data){
+                        alert(data);
+                        loadHomework();
+                    }
+                );
+        }
+        function deleteHomework(){
+            var id = document.getElementById("deleteInput").value;
+            var token = localStorage.getItem("token");
+            fetch("/homework/"+id
+                ,{method:"DELETE"
+                ,headers:{"Authorization":"Bearer "+token}}
+            )
+                .then(
+                    function (response){
+                        return response.text();
+                    }
+                )
+                .then(
+                    function (data){
+                        alert(data);
+                        loadHomework();
+                    }
+                );
+        }
+        function updateHomework(){
+            var id = document.getElementById("updateIDInput").value;
+            var name = document.getElementById("updateNameInput").value;
+            var token = localStorage.getItem("token");
+            fetch("/homework/"+id+"?name="+name
+                ,{method:"PUT"
+                ,headers:{"Authorization":"Bearer "+token}}
+            )
+                .then(
+                    function (response){
+                        return response.text();
+                    }
+                )
+                .then(
+                    function (data){
+                        alert(data);
+                        loadHomework();
+                    }
+                )
+        }
+        loadHomework();
+        function  checkQuestion(){
+            var question = document.getElementById("questionInput").value;
+            fetch("/check?question="+encodeURIComponent(question),{method:"POST"})
+                .then(
+                    function (response){
+                        return response.text();
+                    }
+                )
+                .then(
+                    function (data){
+                    document.getElementById("checkResult").innerHTML =data;
+                    }
+                )
+        }
+    </script>
+
+</body>
+</html>
