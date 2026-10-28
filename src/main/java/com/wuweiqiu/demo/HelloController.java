@@ -1,4 +1,5 @@
 package com.wuweiqiu.demo;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,9 +29,15 @@ import tools.jackson.databind.node.ArrayNode;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.Date;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.util.List;
 @RestController
 public class HelloController {
     Connection conn =null;
+    @Autowired
+    private HomeworkMapper homeworkMapper;
+    @Autowired
+    private UserMapper userMapper;
     @Value("${deepseek.api-key}")
     private String apiKey;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -41,132 +48,72 @@ public class HelloController {
     //查看
     @GetMapping("/homework")
     public String homework(){
-        String result="";
-        try {
-            conn = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/homework_system?serverTimezone=Asia/Shanghai",
-                    "root",
-                    "123456"
-            );
-            PreparedStatement pstmt = conn.prepareStatement("SELECT id,name from homework");
-            ResultSet rs=pstmt.executeQuery();
-            while (rs.next()){
-                result=result+rs.getInt("id")+"."+rs.getString("name")+" ";
-            }
-            conn.close();
-        }catch (SQLException e){
-            System.out.println("查询失败，错误为:"+e.getMessage());
+        List<Homework> list = homeworkMapper.findAll();
+        String result ="";
+        int num = 1 ;
+        for(Homework h:list){
+            result = result +num+"."+h.getName()+" ";
+            num++;
         }
         return result;
-
     }
     //添加.@RequestParam String name:接收 URL 里 ? 后面那个叫 name 的参数
     @PostMapping("/homework/add")
     public String add(@RequestParam String name) {
-        try {
-            conn = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/homework_system?serverTimezone=Asia/Shanghai",
-                    "root",
-                    "123456"
-            );
-            PreparedStatement pstmt = conn.prepareStatement("insert into homework(name) values(?) ");
-            pstmt.setString(1, name);
-            pstmt.executeUpdate();
-            conn.close();
-            return "添加成功：" + name;
-        } catch (SQLException e) {
-            return "添加失败:" + e.getMessage();
-        }
+        homeworkMapper.add(name);
+        return "添加成功:"+name;
     }
     //删除
-    @DeleteMapping("/homework/{id}")
-    public String delete(@PathVariable int id) {
-        try {
-            conn = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/homework_system?serverTimezone=Asia/Shanghai",
-                    "root",
-                    "123456"
-            );
-            PreparedStatement pstmt = conn.prepareStatement("delete from homework where id = ?");
-            pstmt.setInt(1, id);
-            pstmt.executeUpdate();
-            conn.close();
-            return "删除成功,id=" + id;
-        } catch (SQLException e) {
-            return "删除失败:" + e.getMessage();
+    @DeleteMapping("/homework/{no}")
+    public String delete(@PathVariable int no) {
+        List<Homework> list = homeworkMapper.findAll();
+        if(no<1||no>list.size()){
+            return "序号无效，请重新输入";
         }
+        Homework target = list.get(no-1);
+        homeworkMapper.delete(target.getId());
+        return "删除成功:"+target.getName();
     }
     //修改
-    @PutMapping("/homework/{id}")
-    public String update(@PathVariable int id,@RequestParam String name){
-        try {
-            conn = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/homework_system?serverTimezone=Asia/Shanghai",
-                    "root",
-                    "123456"
-            );
-            PreparedStatement pstmt = conn.prepareStatement("update homework set name = ? where id = ?");
-            pstmt.setString(1,name);
-            pstmt.setInt(2,id);
-            pstmt.executeUpdate();
-            conn.close();
-            return "修改成功:id ="+id;
-        }catch (SQLException e){
-            return "修改失败:"+e.getMessage();
+    @PutMapping("/homework/{no}")
+    public String update(@PathVariable int no,@RequestParam String name){
+        List<Homework> list =homeworkMapper.findAll();
+        if(no<1||no>list.size()){
+            return "序号无效，请重新输入";
         }
+        Homework target = list.get(no-1);
+        homeworkMapper.update(target.getId(),name);
+        return "修改成功:"+name;
     }
     //注册
     @PostMapping("/register")
     public String register(@RequestParam String username,@RequestParam String password){
-        try {
-            conn = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/homework_system?serverTimezone=Asia/Shanghai",
-                    "root",
-                    "123456"
-            );
-            PreparedStatement pstmt =conn.prepareStatement("insert into user(username,password) values(?,?)");
-            pstmt.setString(1,username);
-            pstmt.setString(2,passwordEncoder.encode(password));
-            pstmt.executeUpdate();
-            conn.close();
-            return "注册成功:"+username;
-        }catch (SQLException e){
-            return "注册失败:"+e;
-        }
+        userMapper.register(username,passwordEncoder.encode(password));
+        return "注册成功:"+username;
     }
     //登录
     @PostMapping("/login")
     public String login(@RequestParam String username,@RequestParam String password){
-        // ① 密钥：一串够长的秘密字符串（至少 32 个字符）
-        String secret = "this-is-my-very-long-secret-key-for-jwt-1234567890";
-        SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        try {
-            conn = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/homework_system?serverTimezone=Asia/Shanghai",
-                    "root",
-                    "123456"
-            );
-            PreparedStatement pstmt=conn.prepareStatement("select password from user where username=?");
-            pstmt.setString(1,username);
-            ResultSet rs=pstmt.executeQuery();
-            if(rs.next()){
-                String dbPassword = rs.getString("password");
-                if(passwordEncoder.matches(password,dbPassword)){
-                    String token = Jwts.builder()
-                            .subject(username)    // 把"用户名"装进令牌
-                            .expiration(new Date(System.currentTimeMillis()+1000L*60*60*24))
-                            .signWith(key)        // 用密钥"盖章"（签名，防伪造）
-                            .compact();           // 生成最终的 token 字符串
-                    return token;
-                }else{
-                    return "登录错误";
-                }
-            }else {
-                return "用户不存在";
-            }
-        }catch (SQLException e){
-            return "登录失败:"+e.getMessage();
+        String dbPassword = userMapper.findPasswordByUsername(username);
+
+        if (dbPassword == null) {
+            return "用户不存在";
         }
+
+        if (passwordEncoder.matches(password, dbPassword)) {
+            String secret = "this-is-my-very-long-secret-key-for-jwt-1234567890";
+            SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+            String token = Jwts.builder()
+                    .subject(username)
+                    .expiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24))
+                    .signWith(key)
+                    .compact();
+            return token;
+        } else {
+            return "密码错误";
+        }
+
+
     }
     @PostMapping("/check")
     public String check(@RequestParam String question) throws Exception {
