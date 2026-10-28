@@ -7,6 +7,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.ResultSet;
+import java.util.Date;
 import java.util.Scanner;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -24,12 +25,15 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.node.ArrayNode;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
+import java.util.Date;
 @RestController
 public class HelloController {
     Connection conn =null;
     @Value("${deepseek.api-key}")
     private String apiKey;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     @GetMapping("/hello")
     public String hello(){
         return "Hello World";
@@ -111,7 +115,7 @@ public class HelloController {
             return "修改失败:"+e.getMessage();
         }
     }
-
+    //注册
     @PostMapping("/register")
     public String register(@RequestParam String username,@RequestParam String password){
         try {
@@ -122,7 +126,7 @@ public class HelloController {
             );
             PreparedStatement pstmt =conn.prepareStatement("insert into user(username,password) values(?,?)");
             pstmt.setString(1,username);
-            pstmt.setString(2,password);
+            pstmt.setString(2,passwordEncoder.encode(password));
             pstmt.executeUpdate();
             conn.close();
             return "注册成功:"+username;
@@ -130,6 +134,7 @@ public class HelloController {
             return "注册失败:"+e;
         }
     }
+    //登录
     @PostMapping("/login")
     public String login(@RequestParam String username,@RequestParam String password){
         // ① 密钥：一串够长的秘密字符串（至少 32 个字符）
@@ -146,9 +151,10 @@ public class HelloController {
             ResultSet rs=pstmt.executeQuery();
             if(rs.next()){
                 String dbPassword = rs.getString("password");
-                if(dbPassword.equals(password)){
+                if(passwordEncoder.matches(password,dbPassword)){
                     String token = Jwts.builder()
                             .subject(username)    // 把"用户名"装进令牌
+                            .expiration(new Date(System.currentTimeMillis()+1000L*60*60*24))
                             .signWith(key)        // 用密钥"盖章"（签名，防伪造）
                             .compact();           // 生成最终的 token 字符串
                     return token;

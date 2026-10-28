@@ -6,6 +6,10 @@
 </head>
 <body>
     <h1>作业管理系统</h1>
+    <input id="regUsername" placeholder="注册用户名">
+    <input id="regPassword" placeholder="注册密码">
+    <button onclick="register()">注册</button>
+
     <input id="loginUsername" placeholder="用户名">
     <input id="loginPassword" placeholder="密码">
     <button onclick="login()">登录</button>
@@ -27,6 +31,22 @@
 
     <div id="homeworklist"></div>
     <script>
+        function register(){
+            var username =document.getElementById("regUsername").value;
+            var password = document.getElementById("regPassword").value;
+            fetch("/register?username="+username+"&password="+password,{method:"POST"})
+                .then(
+                    function (response){
+                        return response.text();
+                    }
+                )
+                .then(
+                    function (data){
+                        alert(data);
+                    }
+                );
+
+        }
         function login(){
             var username = document.getElementById("loginUsername").value;
             var password = document.getElementById("loginPassword").value;
