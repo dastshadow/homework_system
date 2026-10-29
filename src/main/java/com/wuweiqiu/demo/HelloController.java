@@ -87,33 +87,31 @@ public class HelloController {
     }
     //注册
     @PostMapping("/register")
-    public String register(@RequestParam String username,@RequestParam String password){
-        userMapper.register(username,passwordEncoder.encode(password));
+    public String register(@RequestParam String username,@RequestParam String password,@RequestParam String role){
+        userMapper.register(username,passwordEncoder.encode(password),role);
         return "注册成功:"+username;
     }
     //登录
     @PostMapping("/login")
-    public String login(@RequestParam String username,@RequestParam String password){
+    public String login(@RequestParam String username, @RequestParam String password) {
         String dbPassword = userMapper.findPasswordByUsername(username);
-
         if (dbPassword == null) {
             return "用户不存在";
         }
-
         if (passwordEncoder.matches(password, dbPassword)) {
+            String role = userMapper.findRoleByUsername(username);   // 查角色
             String secret = "this-is-my-very-long-secret-key-for-jwt-1234567890";
             SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
             String token = Jwts.builder()
                     .subject(username)
+                    .claim("role",role)
                     .expiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24))
                     .signWith(key)
                     .compact();
-            return token;
+            return token + "|" + role;   // token 和角色拼一起返回
         } else {
             return "密码错误";
         }
-
-
     }
     @PostMapping("/check")
     public String check(@RequestParam String question) throws Exception {
