@@ -29,6 +29,13 @@ public class LoginInterceptor implements HandlerInterceptor{
                 response.setStatus(403);
                 return false;
             }
+            String uri=request.getRequestURI();
+            if("student".equals(role)&&uri.startsWith("/check")){
+                response.setStatus(403);
+                return false;
+            }
+            String username = claims.getSubject();
+            request.setAttribute("username",username);
             return true;
         }catch (Exception e){
             response.setStatus(401);

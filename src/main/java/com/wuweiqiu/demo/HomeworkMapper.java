@@ -13,8 +13,8 @@ public interface HomeworkMapper {
     @Select("select id,name from homework")
     List<Homework> findAll();
 
-    @Insert("insert into homework(name) values(#{name})")
-    void add(String name);
+    @Insert("insert into homework(name,teacher) values(#{name},#{teacher})")
+    void add(@Param("name") String name,@Param("teacher") String teacher);
 
     @Delete("delete from homework where id = #{id}")
     void delete(int id);

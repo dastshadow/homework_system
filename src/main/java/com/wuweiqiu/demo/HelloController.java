@@ -47,20 +47,13 @@ public class HelloController {
     }
     //查看
     @GetMapping("/homework")
-    public String homework(){
-        List<Homework> list = homeworkMapper.findAll();
-        String result ="";
-        int num = 1 ;
-        for(Homework h:list){
-            result = result +num+"."+h.getName()+" ";
-            num++;
-        }
-        return result;
+    public List<Homework> homework(){
+        return homeworkMapper.findAll();
     }
     //添加.@RequestParam String name:接收 URL 里 ? 后面那个叫 name 的参数
     @PostMapping("/homework/add")
-    public String add(@RequestParam String name) {
-        homeworkMapper.add(name);
+    public String add(@RequestParam String name,@RequestAttribute String username) {
+        homeworkMapper.add(name,username);
         return "添加成功:"+name;
     }
     //删除
@@ -87,8 +80,8 @@ public class HelloController {
     }
     //注册
     @PostMapping("/register")
-    public String register(@RequestParam String username,@RequestParam String password,@RequestParam String role){
-        userMapper.register(username,passwordEncoder.encode(password),role);
+    public String register(@RequestParam String username,@RequestParam String password){
+        userMapper.register(username,passwordEncoder.encode(password),"student");
         return "注册成功:"+username;
     }
     //登录

@@ -3,35 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <title>作业管理系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container{
+            max-width:60%;
+            margin: 0 auto;
+        }
+    </style>
 </head>
 <body>
+<div class="container">
     <h1>作业管理系统</h1>
-    <input id="regUsername" placeholder="注册用户名">
-    <input id="regPassword" placeholder="注册密码">
-    <button onclick="register()">注册</button>
+    <div class="card mx-auto my-4" style="max-width:400px;">
+        <div class="card-header bg-primary text-white">登录/注册</div>
+        <div class="card-body">
+    <input class="form-control mb-2" id="regUsername" placeholder="注册用户名">
+    <input class="form-control mb-2" id="regPassword" placeholder="注册密码">
+    <button class="btn btn-primary" onclick="register()">注册</button>
+    <hr>
+    <input class="form-control mb-2" id="loginUsername" placeholder="用户名">
+    <input class="form-control mb-2" id="loginPassword" placeholder="密码">
+    <button class="btn btn-success" onclick="login()">登录</button>
+        </div>
+    </div>
 
-    <input id="loginUsername" placeholder="用户名">
-    <input id="loginPassword" placeholder="密码">
-    <button onclick="login()">登录</button>
-
-    <select id="regRole">
-        <option value="student">学生</option>
-        <option value="teacher">教师</option>
-    </select>
     <div id="teacherArea">
         <input id="nameInput" placeholder="输入作业名">
-        <button onclick="addHomework()">添加</button>
+        <button class="btn btn-primary" onclick="addHomework()">添加</button>
 
         <input id="deleteInput" placeholder="输入要删除的作业的ID">
-        <button onclick="deleteHomework()">删除</button>
+        <button class="btn btn-danger" onclick="deleteHomework()">删除</button>
 
         <input id="updateIDInput" placeholder="输入要修改的作业的ID">
         <input id="updateNameInput" placeholder="输入要修改的作业的名称">
-        <button onclick="updateHomework()">修改</button>
+        <button class="btn btn-warning" onclick="updateHomework()">修改</button>
     </div>
+    <div id="aiArea">
     <h2>AI 题库检查</h2>
     <textarea id="questionInput" placeholder="粘贴题目：题干+选项+答案" rows="5" cols="40"></textarea>
-    <button onclick="checkQuestion()">AI 检查</button>
+    <button class="btn btn-info" onclick="checkQuestion()">AI 检查</button>
+    </div>
     <div id="checkResult"></div>
 
     <div id="homeworklist"></div>
@@ -39,8 +50,8 @@
         function register(){
             var username =document.getElementById("regUsername").value;
             var password = document.getElementById("regPassword").value;
-            var role = document.getElementById("regRole").value;
-            fetch("/register?username="+username+"&password="+password+"&role="+role,{method:"POST"})
+
+            fetch("/register?username="+username+"&password="+password,{method:"POST"})
                 .then(
                     function (response){
                         return response.text();
@@ -74,12 +85,18 @@
                 })
 
                 .then(function (response) {
-                    return response.text();
+                    return response.json();
                 })
-                .then(function (data) {
-                        document.getElementById("homeworklist").innerHTML = data;
-                    }
-                );
+                .then(function (list) {
+                        var html = "<table class='table table-striped table-hover'>";
+                        html+="<thead class='table-dark'><tr><th>序号</th><th>作业名</th><th>布置老师</th></tr></thead><tbody>"
+                        for(var i=0;i<list.length;i++){
+                        html+="<tr><td>"+(i+1)+"</td><td>"+list[i].name+"</td><td>"+list[i].teacher+"</td></tr>";
+                        }
+
+                    html+="</table>";
+                    document.getElementById("homeworklist").innerHTML = html;
+        } );
         }
         function addHomework(){
             var name = document.getElementById("nameInput").value;
@@ -97,6 +114,7 @@
                 .then(
                     function (data){
                         alert(data);
+                        document.getElementById("nameInput").value = "";
                         loadHomework();
                     }
                 );
@@ -116,6 +134,7 @@
                 .then(
                     function (data){
                         alert(data);
+                        document.getElementById("deleteInput").value="";
                         loadHomework();
                     }
                 );
@@ -136,6 +155,8 @@
                 .then(
                     function (data){
                         alert(data);
+                        document.getElementById("updateIDInput").value="";
+                        document.getElementById("updateNameInput").value="";
                         loadHomework();
                     }
                 )
@@ -157,16 +178,19 @@
         }
         function showByRole(){
             var role = localStorage.getItem("role");
-            var area = document.getElementById("teacherArea");
+            var teacherArea = document.getElementById("teacherArea");
+            var aiArea= document.getElementById("aiArea");
             if(role === "teacher"){
-                area.style.display = "block";
+                teacherArea.style.display = "block";
+                aiArea.style.display="block";
             }else{
-                area.style.display = "none";
+                teacherArea.style.display = "none";
+                aiArea.style.display="none";
             }
         }
         loadHomework();
         showByRole();
     </script>
-
+</div>
 </body>
 </html>

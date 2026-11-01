@@ -18,3 +18,8 @@ CREATE TABLE IF NOT EXISTS user (
 -- 初始数据（测试用）
 INSERT INTO homework(name) VALUES('示例作业1');
 INSERT INTO homework(name) VALUES('示例作业2');
+
+alter table homework add column teacher varchar(50);
+
+ALTER TABLE homework ADD COLUMN start_time VARCHAR(50);
+ALTER TABLE homework ADD COLUMN end_time VARCHAR(50);
