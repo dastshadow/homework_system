@@ -29,6 +29,7 @@
 
     <div id="teacherArea">
         <input id="nameInput" placeholder="输入作业名">
+        <input type="date" id="endTimeInput">
         <button class="btn btn-primary" onclick="addHomework()">添加</button>
 
         <input id="deleteInput" placeholder="输入要删除的作业的ID">
@@ -37,6 +38,16 @@
         <input id="updateIDInput" placeholder="输入要修改的作业的ID">
         <input id="updateNameInput" placeholder="输入要修改的作业的名称">
         <button class="btn btn-warning" onclick="updateHomework()">修改</button>
+
+
+
+
+    </div>
+    <div id="studentArea">
+    <h2>提交作业</h2>
+    <input class="form-control mb-2" id="submitNoInput" placeholder="作业序号">
+    <textarea class="form-control mb-2" id="submitContentInput" placeholder="提交内容" rows="3"></textarea>
+    <button class="btn btn-primary" onclick="submitHomework()">提交</button>
     </div>
     <div id="aiArea">
     <h2>AI 题库检查</h2>
@@ -88,20 +99,24 @@
                     return response.json();
                 })
                 .then(function (list) {
+                        var today=new Date().toISOString().slice(0,10);
                         var html = "<table class='table table-striped table-hover'>";
-                        html+="<thead class='table-dark'><tr><th>序号</th><th>作业名</th><th>布置老师</th></tr></thead><tbody>"
+                        html+="<thead class='table-dark'><tr><th>序号</th><th>作业名</th><th>布置老师</th><th>开始时间</th><th>截止时间</th></tr></thead><tbody>"
                         for(var i=0;i<list.length;i++){
-                        html+="<tr><td>"+(i+1)+"</td><td>"+list[i].name+"</td><td>"+list[i].teacher+"</td></tr>";
+                            var overdue = list[i].endTime < today;
+                            var timeHtml = overdue ? "<span style='color: aquamarine'>"+list[i].endTime+"(已逾期)</span>":list[i].endTime;
+                        html+="<tr><td>"+(i+1)+"</td><td>"+list[i].name+"</td><td>"+list[i].teacher+"</td><td>"+list[i].startTime + "</td><td>" + timeHtml + "</td></tr>";
                         }
 
-                    html+="</table>";
+                    html+="</tbody></table>";
                     document.getElementById("homeworklist").innerHTML = html;
         } );
         }
         function addHomework(){
             var name = document.getElementById("nameInput").value;
+            var endTime = document.getElementById("endTimeInput").value;
             var token =localStorage.getItem("token");
-            fetch("/homework/add?name="+name
+            fetch("/homework/add?name="+name+"&endTime="+endTime
                 ,{method:"POST"
                 ,headers:{"Authorization":"Bearer "+token}}
             )
@@ -115,6 +130,7 @@
                     function (data){
                         alert(data);
                         document.getElementById("nameInput").value = "";
+                        document.getElementById("endTimeInput").value = "";
                         loadHomework();
                     }
                 );
@@ -176,18 +192,38 @@
                     }
                 )
         }
+        function submitHomework() {
+            var no = document.getElementById("submitNoInput").value;
+            var content = document.getElementById("submitContentInput").value;
+            var token = localStorage.getItem("token");
+            fetch("/submit?no=" + no + "&content=" + encodeURIComponent(content), {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            })
+                .then(function(response) { return response.text(); })
+                .then(function(data) {
+                    alert(data);
+                    document.getElementById("submitNoInput").value = "";
+                    document.getElementById("submitContentInput").value = "";
+                });
+        }
         function showByRole(){
             var role = localStorage.getItem("role");
             var teacherArea = document.getElementById("teacherArea");
-            var aiArea= document.getElementById("aiArea");
+            var aiArea = document.getElementById("aiArea");
+            var studentArea = document.getElementById("studentArea");
+
             if(role === "teacher"){
                 teacherArea.style.display = "block";
-                aiArea.style.display="block";
+                aiArea.style.display = "block";
+                studentArea.style.display = "none";    // 老师不显示提交区
             }else{
                 teacherArea.style.display = "none";
-                aiArea.style.display="none";
+                aiArea.style.display = "none";
+                studentArea.style.display = "block";   // 学生显示提交区
             }
         }
+
         loadHomework();
         showByRole();
     </script>

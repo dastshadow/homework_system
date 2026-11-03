@@ -30,6 +30,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.Date;
 import org.springframework.beans.factory.annotation.Autowired;
+
+
+import java.time.LocalDate;
 import java.util.List;
 @RestController
 public class HelloController {
@@ -52,8 +55,12 @@ public class HelloController {
     }
     //添加.@RequestParam String name:接收 URL 里 ? 后面那个叫 name 的参数
     @PostMapping("/homework/add")
-    public String add(@RequestParam String name,@RequestAttribute String username) {
-        homeworkMapper.add(name,username);
+    public String add(@RequestParam String name,@RequestParam String endTime,@RequestAttribute String username) {
+        String startTime = LocalDate.now().toString();
+        if(endTime==null||endTime.isEmpty()){
+            endTime=LocalDate.now().plusDays(7).toString();
+        }
+        homeworkMapper.add(name,username,startTime,endTime);
         return "添加成功:"+name;
     }
     //删除
@@ -142,7 +149,30 @@ public class HelloController {
         JsonNode root = mapper.readTree(response.body());
         return root.path("choices").get(0).path("message").path("content").stringValue();
     }
+    @Autowired
+    private SubmissionMapper submissionMapper;
 
+    @PostMapping("/submit")
+    public String submit(@RequestParam int no, @RequestParam String content, @RequestAttribute String username) {
+        List<Homework> list = homeworkMapper.findAll();
+        if (no < 1 || no > list.size()) {
+            return "序号无效，请重新输入";
+        }
+        Homework target = list.get(no - 1);          // 序号 → 对应作业
+        String submitTime = LocalDate.now().toString();
+        submissionMapper.submit(target.getId(), username, content, submitTime);
+        return "提交成功：" + target.getName();
+    }
 
+    @GetMapping("/submissions")
+    public List<Submission> submissions() {
+        return submissionMapper.findAll();
+    }
+
+    @PostMapping("/score")
+    public String score(@RequestParam int id, @RequestParam int score) {
+        submissionMapper.updateScore(id, score);
+        return "评分成功";
+    }
 
 }

@@ -23,3 +23,12 @@ alter table homework add column teacher varchar(50);
 
 ALTER TABLE homework ADD COLUMN start_time VARCHAR(50);
 ALTER TABLE homework ADD COLUMN end_time VARCHAR(50);
+
+CREATE TABLE IF NOT EXISTS submission (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    homework_id INT,
+    student VARCHAR(50),
+    content TEXT,
+    submit_time VARCHAR(50)
+);
+ALTER TABLE submission ADD COLUMN score INT;

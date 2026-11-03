@@ -25,12 +25,14 @@ public class LoginInterceptor implements HandlerInterceptor{
             String role = claims.get("role",String.class);
 
             String method = request.getMethod();
-            if("student".equals(role)&&("POST".equals(method)||"PUT".equals(method)||"DELETE".equals(method))){
+            String uri=request.getRequestURI();
+            if ("student".equals(role) && uri.startsWith("/homework")
+                    && ("POST".equals(method) || "PUT".equals(method) || "DELETE".equals(method))) {
                 response.setStatus(403);
                 return false;
             }
-            String uri=request.getRequestURI();
-            if("student".equals(role)&&uri.startsWith("/check")){
+            // 学生不能用 AI 检查
+            if ("student".equals(role) && uri.startsWith("/check")) {
                 response.setStatus(403);
                 return false;
             }
