@@ -3,227 +3,319 @@
 <head>
     <meta charset="UTF-8">
     <title>作业管理系统</title>
+    <!-- 引入 Bootstrap 样式库：不用自己手写 CSS，加个 class 就有好看的按钮/表格/卡片 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- 自定义样式：让整个页面内容居中，左右各留 20% 空白 -->
     <style>
         .container{
-            max-width:60%;
-            margin: 0 auto;
+            max-width:60%;    /* 内容最多占 60% 宽，左右自然各空 20% */
+            margin: 0 auto;   /* 上下 0，左右自动平分 → 水平居中 */
         }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>作业管理系统</h1>
+
+    <!-- ============ 登录 / 注册 卡片 ============ -->
     <div class="card mx-auto my-4" style="max-width:400px;">
         <div class="card-header bg-primary text-white">登录/注册</div>
         <div class="card-body">
-    <input class="form-control mb-2" id="regUsername" placeholder="注册用户名">
-    <input class="form-control mb-2" id="regPassword" placeholder="注册密码">
-    <button class="btn btn-primary" onclick="register()">注册</button>
-    <hr>
-    <input class="form-control mb-2" id="loginUsername" placeholder="用户名">
-    <input class="form-control mb-2" id="loginPassword" placeholder="密码">
-    <button class="btn btn-success" onclick="login()">登录</button>
+            <input class="form-control mb-2" id="regUsername" placeholder="注册用户名">
+            <input class="form-control mb-2" id="regPassword" placeholder="注册密码">
+            <button class="btn btn-primary" onclick="register()">注册</button>
+            <hr>
+            <input class="form-control mb-2" id="loginUsername" placeholder="用户名">
+            <input class="form-control mb-2" id="loginPassword" placeholder="密码">
+            <button class="btn btn-success" onclick="login()">登录</button>
         </div>
     </div>
 
+    <!-- ============ 教师专属区：添加/删除/修改作业 ============
+         这个 div 只有「教师」登录后才显示，由下面的 showByRole() 控制 -->
     <div id="teacherArea">
         <input id="nameInput" placeholder="输入作业名">
         <input type="date" id="endTimeInput">
         <button class="btn btn-primary" onclick="addHomework()">添加</button>
 
-        <input id="deleteInput" placeholder="输入要删除的作业的ID">
+        <input id="deleteInput" placeholder="输入要删除的作业序号">
         <button class="btn btn-danger" onclick="deleteHomework()">删除</button>
 
-        <input id="updateIDInput" placeholder="输入要修改的作业的ID">
+        <input id="updateIDInput" placeholder="输入要修改的作业序号">
         <input id="updateNameInput" placeholder="输入要修改的作业的名称">
         <button class="btn btn-warning" onclick="updateHomework()">修改</button>
-
-
-
-
     </div>
+
+    <!-- ============ 学生专属区：提交作业 ============
+         这个 div 只有「学生」登录后才显示 -->
     <div id="studentArea">
-    <h2>提交作业</h2>
-    <input class="form-control mb-2" id="submitNoInput" placeholder="作业序号">
-    <textarea class="form-control mb-2" id="submitContentInput" placeholder="提交内容" rows="3"></textarea>
-    <button class="btn btn-primary" onclick="submitHomework()">提交</button>
+        <h2>提交作业</h2>
+        <input class="form-control mb-2" id="submitNoInput" placeholder="作业序号">
+        <textarea class="form-control mb-2" id="submitContentInput" placeholder="提交内容" rows="3"></textarea>
+        <button class="btn btn-primary" onclick="submitHomework()">提交</button>
     </div>
-    <div id="aiArea">
-    <h2>AI 题库检查</h2>
-    <textarea id="questionInput" placeholder="粘贴题目：题干+选项+答案" rows="5" cols="40"></textarea>
-    <button class="btn btn-info" onclick="checkQuestion()">AI 检查</button>
-    </div>
-    <div id="checkResult"></div>
 
+    <!-- ============ 教师专属区：AI 题库检查 ============ -->
+    <div id="aiArea">
+        <h2>AI 题库检查</h2>
+        <textarea id="questionInput" placeholder="粘贴题目：题干+选项+答案" rows="5" cols="40"></textarea>
+        <button class="btn btn-info" onclick="checkQuestion()">AI 检查</button>
+        <!-- AI 检查结果的展示区：checkQuestion() 会把 AI 回复塞进这里 -->
+        <div id="checkResult"></div>
+    </div>
+    <!--=============教师专属：评分区====================-->
+    <div id="gradeArea">
+        <h2>学生提交与评分</h2>
+        <div id="submissionList"></div>
+    </div>
+    <div id="completionArea">
+        <h2>作业完成情况</h2>
+        <input class="form-control mb-2" id="completionNoInput" placeholder="输入作业序号">
+        <button class="btn btn-primary" onclick="checkCompletion()">查看完成情况</button>
+        <div id="completionResult"></div>
+    </div>
+    <!-- 作业列表展示区：loadHomework() 会把生成的表格塞进这里 -->
     <div id="homeworklist"></div>
+
     <script>
+        // ============ 注册 ============
+        // 取输入框里的用户名/密码 → 发给后端 /register → 弹窗提示结果
         function register(){
-            var username =document.getElementById("regUsername").value;
+            var username = document.getElementById("regUsername").value;  // 读输入框的值
             var password = document.getElementById("regPassword").value;
 
+            // 发请求到 /register，参数拼在 URL 后面（?username=xxx&password=xxx）
             fetch("/register?username="+username+"&password="+password,{method:"POST"})
-                .then(
-                    function (response){
-                        return response.text();
-                    }
-                )
-                .then(
-                    function (data){
-                        alert(data);
-                    }
-                );
-
+                .then(function (response){        // 后端处理完，返回结果
+                    return response.text();      // 把结果转成文字
+                })
+                .then(function (data){
+                    alert(data);                 // 弹窗显示后端返回的文字（"注册成功:xxx"）
+                });
         }
+
+        // ============ 登录 ============
+        // 登录成功后，后端会返回 "token|角色"（用 | 隔开），这里拆开分别存起来
         function login() {
             var username = document.getElementById("loginUsername").value;
             var password = document.getElementById("loginPassword").value;
             fetch("/login?username=" + username + "&password=" + password, { method: "POST" })
                 .then(function(response) { return response.text(); })
                 .then(function(data) {
-                    var parts = data.split("|");          // 按 | 拆成两段
-                    localStorage.setItem("token", parts[0]);   // 第一段是 token
-                    localStorage.setItem("role", parts[1]);    // 第二段是角色
-                    showByRole();
+                    var parts = data.split("|");                    // 按 | 把结果切成两段
+                    localStorage.setItem("token", parts[0]);        // 第一段是 token，存进浏览器
+                    localStorage.setItem("role", parts[1]);         // 第二段是角色（student/teacher）
+                    showByRole();                                    // 按角色显示/隐藏功能区
                     alert("登录成功");
-                    loadHomework();
+                    loadHomework();                                  // 登录后刷新作业列表
+                    loadSubmissions();                               // 登录后教师可对学生评分
                 });
         }
+
+        // ============ 查看作业（把数据渲染成表格） ============
         function loadHomework() {
-            var token = localStorage.getItem("token");
+            var token = localStorage.getItem("token");              // 取出之前存的 token
+            if(!token){
+                return;
+            }
+            // 发请求，带上 token（放在请求头 Authorization 里，拦截器靠它验身份）
             fetch("/homework",{
                 headers:{"Authorization":"Bearer "+token}
-                })
+            })
+            .then(function (response) {
+                return response.json();                              // 后端返回 JSON，转成 JS 数组
+            })
+            .then(function (list) {                                  // list 就是作业数组
+                var today = new Date().toISOString().slice(0,10);   // 今天的日期（如 2026-11-04）
 
-                .then(function (response) {
-                    return response.json();
-                })
-                .then(function (list) {
-                        var today=new Date().toISOString().slice(0,10);
-                        var html = "<table class='table table-striped table-hover'>";
-                        html+="<thead class='table-dark'><tr><th>序号</th><th>作业名</th><th>布置老师</th><th>开始时间</th><th>截止时间</th></tr></thead><tbody>"
-                        for(var i=0;i<list.length;i++){
-                            var overdue = list[i].endTime < today;
-                            var timeHtml = overdue ? "<span style='color: aquamarine'>"+list[i].endTime+"(已逾期)</span>":list[i].endTime;
-                        html+="<tr><td>"+(i+1)+"</td><td>"+list[i].name+"</td><td>"+list[i].teacher+"</td><td>"+list[i].startTime + "</td><td>" + timeHtml + "</td></tr>";
-                        }
+                // 开始拼 HTML 表格
+                var html = "<table class='table table-striped table-hover'>";
+                html += "<thead class='table-dark'><tr><th>序号</th><th>作业名</th><th>布置老师</th><th>开始时间</th><th>截止时间</th></tr></thead><tbody>"
 
-                    html+="</tbody></table>";
-                    document.getElementById("homeworklist").innerHTML = html;
-        } );
+                // 遍历每条作业，生成一行 <tr>
+                for(var i=0;i<list.length;i++){
+                    var overdue = list[i].endTime < today;          // 截止时间早于今天 = 已逾期
+                    // 逾期的话，时间用颜色 + 加"(已逾期)"标记；否则正常显示
+                    var timeHtml = overdue ? "<span style='color: red'>"+list[i].endTime+"(已逾期)</span>":list[i].endTime;
+                    html += "<tr><td>"+(i+1)+"</td><td>"+list[i].name+"</td><td>"+list[i].teacher+"</td><td>"+list[i].startTime+"</td><td>"+timeHtml+"</td></tr>";
+                }
+
+                html += "</tbody></table>";
+                document.getElementById("homeworklist").innerHTML = html;  // 把表格塞进页面
+            });
         }
+
+        // ============ 添加作业（教师） ============
         function addHomework(){
             var name = document.getElementById("nameInput").value;
             var endTime = document.getElementById("endTimeInput").value;
-            var token =localStorage.getItem("token");
-            fetch("/homework/add?name="+name+"&endTime="+endTime
-                ,{method:"POST"
-                ,headers:{"Authorization":"Bearer "+token}}
+            var token = localStorage.getItem("token");
+            fetch("/homework/add?name="+name+"&endTime="+endTime,
+                {method:"POST", headers:{"Authorization":"Bearer "+token}}
             )
-                .then(
-                    function (response){
-                        return response.text();
-                    }
-
-                )
-                .then(
-                    function (data){
-                        alert(data);
-                        document.getElementById("nameInput").value = "";
-                        document.getElementById("endTimeInput").value = "";
-                        loadHomework();
-                    }
-                );
+            .then(function (response){ return response.text(); })
+            .then(function (data){
+                alert(data);                                        // 提示"添加成功"
+                document.getElementById("nameInput").value = "";    // 清空输入框，方便下次输入
+                document.getElementById("endTimeInput").value = "";
+                loadHomework();                                     // 重新拉取列表（刷新显示）
+            });
         }
+
+        // ============ 删除作业（教师） ============
         function deleteHomework(){
-            var id = document.getElementById("deleteInput").value;
+            var id = document.getElementById("deleteInput").value;  // 用户输入的「序号」
             var token = localStorage.getItem("token");
-            fetch("/homework/"+id
-                ,{method:"DELETE"
-                ,headers:{"Authorization":"Bearer "+token}}
+            // 删哪个作业，用路径参数拼进 URL：/homework/序号，方法 DELETE
+            fetch("/homework/"+id,
+                {method:"DELETE", headers:{"Authorization":"Bearer "+token}}
             )
-                .then(
-                    function (response){
-                        return response.text();
+            .then(function (response){ return response.text(); })
+            .then(function (data){
+                alert(data);
+                document.getElementById("deleteInput").value="";
+                loadHomework();
+            });
+        }
+
+        // ============ 修改作业（教师） ============
+        function updateHomework(){
+            var id = document.getElementById("updateIDInput").value;    // 要改的「序号」
+            var name = document.getElementById("updateNameInput").value; // 新名字
+            var token = localStorage.getItem("token");
+            // 路径参数(序号) + URL 参数(新名字)，方法 PUT
+            fetch("/homework/"+id+"?name="+name,
+                {method:"PUT", headers:{"Authorization":"Bearer "+token}}
+            )
+            .then(function (response){ return response.text(); })
+            .then(function (data){
+                alert(data);
+                document.getElementById("updateIDInput").value="";
+                document.getElementById("updateNameInput").value="";
+                loadHomework();
+            });
+        }
+
+        // ============ AI 题库检查（教师） ============
+        function checkQuestion(){
+            var question = document.getElementById("questionInput").value;
+            // encodeURIComponent：把题目里的空格/换行等特殊字符「编码」成 URL 能安全传的形式
+            fetch("/check?question="+encodeURIComponent(question),{method:"POST"})
+            .then(function (response){ return response.text(); })
+            .then(function (data){
+                // 把 AI 返回的检查报告，直接显示在页面上
+                document.getElementById("checkResult").innerHTML = data;
+            });
+        }
+
+        //============= 学生作业评分显示（老师）=========
+        function loadSubmissions(){
+            var token = localStorage.getItem("token");
+            if(!token){
+                return;
+            }
+            fetch("/submissions",{
+                headers:{"Authorization":"Bearer "+token}
+                }
+            )
+                .then(function (response){
+                    return response.json();
+                })
+                .then(function (list){
+                    var html = "<table class='table table-striped table-hover'>";
+                    html += "<thead class='table-dark'><tr><th>提交ID</th><th>学生</th><th>内容</th><th>分数</th><th>打分</th></tr></thead><tbody>";
+                    for (var i = 0; i < list.length; i++) {
+                        html += "<tr>";
+                        html += "<td>" + list[i].id + "</td>";
+                        html += "<td>" + list[i].student + "</td>";
+                        html += "<td>" + list[i].content + "</td>";
+                        html += "<td>" + list[i].score + "</td>";
+                        // 关键：输入框 id 用 "scoreInput" + 提交id 拼接，方便打分时找到它
+                        html += "<td><input id='scoreInput" + list[i].id + "' placeholder='分数'>"
+                            +  "<button class='btn btn-sm btn-success' onclick='score(" + list[i].id + ")'>打分</button></td>";
+                        html += "</tr>";
                     }
-                )
-                .then(
-                    function (data){
-                        alert(data);
-                        document.getElementById("deleteInput").value="";
-                        loadHomework();
+                    html += "</tbody></table>";
+                    document.getElementById("submissionList").innerHTML = html;
                     }
                 );
         }
-        function updateHomework(){
-            var id = document.getElementById("updateIDInput").value;
-            var name = document.getElementById("updateNameInput").value;
-            var token = localStorage.getItem("token");
-            fetch("/homework/"+id+"?name="+name
-                ,{method:"PUT"
-                ,headers:{"Authorization":"Bearer "+token}}
-            )
-                .then(
-                    function (response){
-                        return response.text();
-                    }
-                )
-                .then(
-                    function (data){
-                        alert(data);
-                        document.getElementById("updateIDInput").value="";
-                        document.getElementById("updateNameInput").value="";
-                        loadHomework();
-                    }
-                )
-        }
+        //============学生作业评分(老师)=============
+        function score(id){
 
-        function  checkQuestion(){
-            var question = document.getElementById("questionInput").value;
-            fetch("/check?question="+encodeURIComponent(question),{method:"POST"})
-                .then(
-                    function (response){
-                        return response.text();
+            var score = document.getElementById("scoreInput"+id).value;
+            var token = localStorage.getItem("token");
+            fetch("/score?id="+id+"&score="+score,
+                {
+                    method:"POST",
+                    headers:{"Authorization":"Bearer "+token}
+                }
+            )
+                .then(function (response){
+                    return response.text();
                     }
                 )
-                .then(
-                    function (data){
-                    document.getElementById("checkResult").innerHTML =data;
+                .then(function (data){
+                    alert(data);
+                    loadSubmissions();
                     }
+
                 )
         }
+        function checkCompletion() {
+            var no = document.getElementById("completionNoInput").value;
+            var token = localStorage.getItem("token");
+            fetch("/completion?no=" + no, {
+                headers: { "Authorization": "Bearer " + token }
+            })
+                .then(function(response) { return response.text(); })
+                .then(function(data) {
+                    // 关键：后端返回的字符串里有 \n 换行，用 <pre> 包起来，浏览器才会换行显示
+                    document.getElementById("completionResult").innerHTML = "<pre>" + data + "</pre>";
+                });
+        }
+        // ============ 提交作业（学生） ============
         function submitHomework() {
-            var no = document.getElementById("submitNoInput").value;
-            var content = document.getElementById("submitContentInput").value;
+            var no = document.getElementById("submitNoInput").value;        // 作业序号
+            var content = document.getElementById("submitContentInput").value; // 提交内容
             var token = localStorage.getItem("token");
             fetch("/submit?no=" + no + "&content=" + encodeURIComponent(content), {
                 method: "POST",
                 headers: { "Authorization": "Bearer " + token }
             })
-                .then(function(response) { return response.text(); })
-                .then(function(data) {
-                    alert(data);
-                    document.getElementById("submitNoInput").value = "";
-                    document.getElementById("submitContentInput").value = "";
-                });
+            .then(function(response) { return response.text(); })
+            .then(function(data) {
+                alert(data);
+                document.getElementById("submitNoInput").value = "";
+                document.getElementById("submitContentInput").value = "";
+            });
         }
+
+
+
+        // ============ 按角色显示/隐藏功能区 ============
         function showByRole(){
-            var role = localStorage.getItem("role");
+            var role = localStorage.getItem("role");              // 取登录时存的角色
             var teacherArea = document.getElementById("teacherArea");
             var aiArea = document.getElementById("aiArea");
             var studentArea = document.getElementById("studentArea");
-
-            if(role === "teacher"){
+            var gradeArea = document.getElementById("gradeArea");
+            if(role === "teacher"){                               // 教师：显示教师区 + AI，隐藏提交区
                 teacherArea.style.display = "block";
                 aiArea.style.display = "block";
-                studentArea.style.display = "none";    // 老师不显示提交区
-            }else{
+                gradeArea.style.display="block";
+                completionArea.style.display = "block";
+                studentArea.style.display = "none";
+            }else{                                                // 学生：只显示提交区，隐藏教师区 + AI
                 teacherArea.style.display = "none";
                 aiArea.style.display = "none";
-                studentArea.style.display = "block";   // 学生显示提交区
+                gradeArea.style.display="none";
+                completionArea.style.display = "none";
+                studentArea.style.display = "block";
             }
         }
 
+        // 页面一打开，先执行两次：加载作业列表 + 按角色显示功能区
         loadHomework();
         showByRole();
     </script>

@@ -1,12 +1,17 @@
 package com.wuweiqiu.demo;
 
+/**
+ * 实体类：对应数据库的 submission 表（提交记录）。
+ * 一行提交 = 一个 Submission 对象。
+ */
 public class Submission {
-    private int id;
-    private int homeworkId;
-    private String student;
-    private String content;
-    private String submitTime;
-    private int score;
+    private int id;            // 提交记录的主键
+    private int homeworkId;    // 对应哪个作业（homework 表的 id）
+    private String student;    // 哪个学生提交的
+    private String content;    // 提交的内容
+    private String submitTime; // 提交时间
+    private int score;         // 得分（老师评分后才有）
+
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 

@@ -1,15 +1,10 @@
 package com.wuweiqiu.demo;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.ResultSet;
 import java.util.Date;
-import java.util.Scanner;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import javax.crypto.SecretKey;
@@ -22,99 +17,174 @@ import java.net.http.HttpResponse;
 
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.JsonNode;
-
 import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.node.ArrayNode;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
-import java.util.Date;
-import org.springframework.beans.factory.annotation.Autowired;
-
-
 import java.time.LocalDate;
 import java.util.List;
+
+/**
+ * 作业管理系统的「接口层」（Controller）。
+ *
+ * 这个类是整个后端的入口：浏览器/Postman 发来的 HTTP 请求，都先到这里，
+ * 再由它调用 Mapper（数据库操作）去真正干活。
+ *
+ * 关键注解：
+ *  - @RestController：告诉 Spring「这个类负责处理 HTTP 请求，并直接返回数据」。
+ *  - @GetMapping / @PostMapping / @PutMapping / @DeleteMapping：
+ *    分别对应 HTTP 的「查 / 增 / 改 / 删」四种操作。
+ */
 @RestController
 public class HelloController {
-    Connection conn =null;
+
+    // ===== 下面是「依赖注入」的字段 =====
+    // @Autowired = 让 Spring 自动把实现类塞进来，不用自己 new。
+    // 这些 Mapper 接口本身没有实现类，实现是 MyBatis 在运行时自动生成的。
+
     @Autowired
-    private HomeworkMapper homeworkMapper;
+    private HomeworkMapper homeworkMapper;      // 作业表的数据操作
+
     @Autowired
-    private UserMapper userMapper;
+    private UserMapper userMapper;              // 用户表的数据操作
+
+    @Autowired
+    private SubmissionMapper submissionMapper;  // 提交表的数据操作
+
+    // @Value = 从 application.properties 里读出配置项的值。
+    // "${deepseek.api-key}" 会被替换成配置文件里 deepseek.api-key= 后面的值（即 API Key）。
     @Value("${deepseek.api-key}")
     private String apiKey;
+
+    // BCrypt 加密工具：注册时加密密码、登录时验证密码，都用它。
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    /**
+     * 测试接口：访问 /hello 返回一句话，用来验证服务器能正常响应。
+     */
     @GetMapping("/hello")
-    public String hello(){
+    public String hello() {
         return "Hello World";
     }
-    //查看
+
+    /**
+     * 查看所有作业。
+     * 返回类型是 List<Homework>，Spring 会自动把它转成 JSON 数组给前端。
+     */
     @GetMapping("/homework")
-    public List<Homework> homework(){
-        return homeworkMapper.findAll();
+    public List<Homework> homework() {
+        return homeworkMapper.findAll();   // 一行搞定：查所有作业
     }
-    //添加.@RequestParam String name:接收 URL 里 ? 后面那个叫 name 的参数
+
+    /**
+     * 添加作业（老师用）。
+     *
+     * @param name     作业名（来自 URL 的 ?name=xxx）
+     * @param endTime  截止时间（来自 URL 的 ?endTime=xxx）
+     * @param username 布置老师 —— 由拦截器从 token 里取出、放进 request，
+     *                 这里用 @RequestAttribute 把它拿出来
+     */
     @PostMapping("/homework/add")
-    public String add(@RequestParam String name,@RequestParam String endTime,@RequestAttribute String username) {
+    public String add(@RequestParam String name, @RequestParam String endTime, @RequestAttribute String username) {
+        // 开始时间不用老师填，自动记成「今天」。
         String startTime = LocalDate.now().toString();
-        if(endTime==null||endTime.isEmpty()){
-            endTime=LocalDate.now().plusDays(7).toString();
+        // 老师没选截止时间时，默认一周后。
+        if (endTime == null || endTime.isEmpty()) {
+            endTime = LocalDate.now().plusDays(7).toString();
         }
-        homeworkMapper.add(name,username,startTime,endTime);
-        return "添加成功:"+name;
+        homeworkMapper.add(name, username, startTime, endTime);
+        return "添加成功:" + name;
     }
-    //删除
+
+    /**
+     * 删除作业（老师用）。
+     *
+     * @param no 用户看到的「序号」（1、2、3……），不是数据库里的 id。
+     */
     @DeleteMapping("/homework/{no}")
     public String delete(@PathVariable int no) {
         List<Homework> list = homeworkMapper.findAll();
-        if(no<1||no>list.size()){
+        // 边界保护：序号必须在 1 ~ 列表长度 之间。
+        if (no < 1 || no > list.size()) {
             return "序号无效，请重新输入";
         }
-        Homework target = list.get(no-1);
+        // 序号 → 对应元素 → 拿它真实的 id 去删。
+        Homework target = list.get(no - 1);
         homeworkMapper.delete(target.getId());
-        return "删除成功:"+target.getName();
+        return "删除成功:" + target.getName();
     }
-    //修改
+
+    /**
+     * 修改作业名（老师用）。
+     *
+     * @param no   要改的作业「序号」
+     * @param name 新名字
+     */
     @PutMapping("/homework/{no}")
-    public String update(@PathVariable int no,@RequestParam String name){
-        List<Homework> list =homeworkMapper.findAll();
-        if(no<1||no>list.size()){
+    public String update(@PathVariable int no, @RequestParam String name) {
+        List<Homework> list = homeworkMapper.findAll();
+        if (no < 1 || no > list.size()) {
             return "序号无效，请重新输入";
         }
-        Homework target = list.get(no-1);
-        homeworkMapper.update(target.getId(),name);
-        return "修改成功:"+name;
+        Homework target = list.get(no - 1);
+        homeworkMapper.update(target.getId(), name);
+        return "修改成功:" + name;
     }
-    //注册
+
+    /**
+     * 注册。
+     * 注意：角色写死为 "student" —— 任何人都只能注册成学生，
+     * 教师账号要手动去数据库改，防止有人「自封教师」。
+     */
     @PostMapping("/register")
-    public String register(@RequestParam String username,@RequestParam String password){
-        userMapper.register(username,passwordEncoder.encode(password),"student");
-        return "注册成功:"+username;
+    public String register(@RequestParam String username, @RequestParam String password) {
+        // 密码先用 BCrypt 加密成乱码再存，数据库泄露也看不出明文。
+        userMapper.register(username, passwordEncoder.encode(password), "student");
+        return "注册成功:" + username;
     }
-    //登录
+
+    /**
+     * 登录。
+     * 核对账号密码 → 对了就发一个 JWT 令牌（token），和角色一起返回。
+     */
     @PostMapping("/login")
     public String login(@RequestParam String username, @RequestParam String password) {
+        // ① 按用户名查出库里存的密码（密文）。
         String dbPassword = userMapper.findPasswordByUsername(username);
         if (dbPassword == null) {
             return "用户不存在";
         }
+
+        // ② matches(用户输入的明文, 库里的密文) —— BCrypt 验证密码对不对。
         if (passwordEncoder.matches(password, dbPassword)) {
-            String role = userMapper.findRoleByUsername(username);   // 查角色
+            String role = userMapper.findRoleByUsername(username);   // 查出角色
+
+            // ③ 生成 JWT：把用户名(subject)和角色(claim)装进令牌，设 24 小时过期。
             String secret = "this-is-my-very-long-secret-key-for-jwt-1234567890";
             SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
             String token = Jwts.builder()
-                    .subject(username)
-                    .claim("role",role)
-                    .expiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24))
-                    .signWith(key)
+                    .subject(username)                                    // 令牌里装「用户名」
+                    .claim("role", role)                                  // 令牌里装「角色」
+                    .expiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24)) // 24 小时后过期
+                    .signWith(key)                                        // 用密钥签名（防伪造）
                     .compact();
-            return token + "|" + role;   // token 和角色拼一起返回
+
+            // ④ 把 token 和角色用 | 拼一起返回，前端再拆开分别存。
+            return token + "|" + role;
         } else {
             return "密码错误";
         }
     }
+
+    /**
+     * AI 题库检查（老师用）。
+     * 把用户粘贴的题目 + 一段「审核员 prompt」打包成 JSON，发给 DeepSeek，
+     * 再把 AI 的回复从返回的 JSON 里抠出来返回。
+     */
     @PostMapping("/check")
     public String check(@RequestParam String question) throws Exception {
+        // ① 拼 prompt：告诉 AI「你是题库审核员，检查下面题目」。
         String prompt = "你是一位严谨的题库审核员。请检查下面的题目，重点检查：\n" +
                 "1. 答案选项是否在选项中\n" +
                 "2. 公式、特殊符号是否乱码或错位\n" +
@@ -122,21 +192,19 @@ public class HelloController {
                 "题目内容：\n" + question + "\n\n" +
                 "请逐条列出问题；没问题请回复未发现问题。";
 
+        // ② 用 Jackson 构建请求体 JSON（别手动拼字符串，会因换行/引号出错）。
         ObjectMapper mapper = new ObjectMapper();
-
-        ObjectNode message = mapper.createObjectNode();
+        ObjectNode message = mapper.createObjectNode();   // 一条消息对象
         message.put("role", "user");
         message.put("content", prompt);
-
-        ArrayNode messages = mapper.createArrayNode();
+        ArrayNode messages = mapper.createArrayNode();    // 消息数组
         messages.add(message);
-
-        ObjectNode body = mapper.createObjectNode();
+        ObjectNode body = mapper.createObjectNode();      // 整个请求体
         body.put("model", "deepseek-chat");
         body.set("messages", messages);
-
         String jsonBody = mapper.writeValueAsString(body);
 
+        // ③ 用 HttpClient 把 JSON 发给 DeepSeek（带 Key 认证）。
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.deepseek.com/chat/completions"))
@@ -146,12 +214,18 @@ public class HelloController {
                 .build();
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
+        // ④ 解析返回 JSON，按路径 choices → [0] → message → content 抠出 AI 回答。
         JsonNode root = mapper.readTree(response.body());
         return root.path("choices").get(0).path("message").path("content").stringValue();
     }
-    @Autowired
-    private SubmissionMapper submissionMapper;
 
+    /**
+     * 学生提交作业。
+     *
+     * @param no       作业「序号」（学生看到列表里的序号）
+     * @param content  提交的内容
+     * @param username 提交人 —— 从 token 取出
+     */
     @PostMapping("/submit")
     public String submit(@RequestParam int no, @RequestParam String content, @RequestAttribute String username) {
         List<Homework> list = homeworkMapper.findAll();
@@ -164,15 +238,46 @@ public class HelloController {
         return "提交成功：" + target.getName();
     }
 
+    /**
+     * 查看所有提交记录（老师用）。
+     */
     @GetMapping("/submissions")
     public List<Submission> submissions() {
         return submissionMapper.findAll();
     }
 
+    /**
+     * 评分（老师用）。
+     *
+     * @param id    提交记录的 id
+     * @param score 分数
+     */
     @PostMapping("/score")
     public String score(@RequestParam int id, @RequestParam int score) {
         submissionMapper.updateScore(id, score);
         return "评分成功";
+    }
+    @GetMapping("/completion")
+    public String completion(@RequestParam int no){
+        List<Homework> list = homeworkMapper.findAll();
+        if(no<1||no>list.size()){
+            return "序号无效，请重新输入";
+        }
+        Homework target = list.get(no-1);
+        int homeworkId = target.getId();
+        //查所有学生
+        List<String>allStudents = userMapper.findAllStudentNames();
+        //查这个作业已交的学生
+        List<String>submitted=submissionMapper.findStudentsByHomeworkId(homeworkId);
+        String result = "作业「" + target.getName() + "」完成情况：\n";
+        for(String s:allStudents){
+            if(submitted.contains(s)){
+                result += s+":已交\n";
+            }else {
+                result += s+":未交\n";
+            }
+        }
+        return result;
     }
 
 }
