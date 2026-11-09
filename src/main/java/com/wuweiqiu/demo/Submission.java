@@ -11,6 +11,7 @@ public class Submission {
     private String content;    // 提交的内容
     private String submitTime; // 提交时间
     private int score;         // 得分（老师评分后才有）
+    private String fileName;   // 上传的附件名
 
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
@@ -29,4 +30,11 @@ public class Submission {
 
     public int getScore() { return score; }
     public void setScore(int score) { this.score = score; }
+
+    public String getFileName() {
+        return fileName;
+    }
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
 }

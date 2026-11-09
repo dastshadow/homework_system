@@ -15,9 +15,10 @@ import org.apache.ibatis.annotations.Update;
 public interface SubmissionMapper {
 
     // 学生提交作业：插入一条提交记录
-    @Insert("INSERT INTO submission(homework_id, student, content, submit_time) VALUES(#{homeworkId}, #{student}, #{content}, #{submitTime})")
+    @Insert("INSERT INTO submission(homework_id, student, content, submit_time, file_name) VALUES(#{homeworkId}, #{student}, #{content}, #{submitTime}, #{fileName})")
     void submit(@Param("homeworkId") int homeworkId, @Param("student") String student,
-                @Param("content") String content, @Param("submitTime") String submitTime);
+                @Param("content") String content, @Param("submitTime") String submitTime,
+                @Param("fileName") String fileName);
 
     // 查所有提交记录（老师用来查看 + 评分）
     @Select("SELECT id, homework_id, student, content, submit_time, score FROM submission")

@@ -53,6 +53,8 @@
         <input class="form-control mb-2" id="submitNoInput" placeholder="作业序号">
         <textarea class="form-control mb-2" id="submitContentInput" placeholder="提交内容" rows="3"></textarea>
         <button class="btn btn-primary" onclick="submitHomework()">提交</button>
+        <input class="form-control mb-2" type="file" id="submitFileInput">
+
     </div>
 
     <!-- ============ 教师专属区：AI 题库检查 ============ -->
@@ -276,20 +278,33 @@
         }
         // ============ 提交作业（学生） ============
         function submitHomework() {
-            var no = document.getElementById("submitNoInput").value;        // 作业序号
-            var content = document.getElementById("submitContentInput").value; // 提交内容
+            var no = document.getElementById("submitNoInput").value;
+            var content = document.getElementById("submitContentInput").value;
+            var fileInput = document.getElementById("submitFileInput");
             var token = localStorage.getItem("token");
-            fetch("/submit?no=" + no + "&content=" + encodeURIComponent(content), {
+
+            // 用 FormData 打包：文字和文件都能装进去
+            var formData = new FormData();
+            formData.append("no", no);              // 装作业序号
+            formData.append("content", content);    // 装提交内容
+            if (fileInput.files.length > 0) {       // 如果选了文件
+                formData.append("file", fileInput.files[0]);   // 装文件
+            }
+
+            fetch("/submit", {
                 method: "POST",
-                headers: { "Authorization": "Bearer " + token }
+                headers: { "Authorization": "Bearer " + token },   // 注意：只带 token，不设 Content-Type
+                body: formData                                      // 关键：body 传 FormData，不是拼 URL
             })
-            .then(function(response) { return response.text(); })
-            .then(function(data) {
-                alert(data);
-                document.getElementById("submitNoInput").value = "";
-                document.getElementById("submitContentInput").value = "";
-            });
+                .then(function(response) { return response.text(); })
+                .then(function(data) {
+                    alert(data);
+                    document.getElementById("submitNoInput").value = "";
+                    document.getElementById("submitContentInput").value = "";
+                    document.getElementById("submitFileInput").value = "";
+                });
         }
+
 
 
 

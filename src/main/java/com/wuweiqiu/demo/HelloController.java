@@ -25,6 +25,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.web.multipart.MultipartFile;
+import java.io.File;
 /**
  * 作业管理系统的「接口层」（Controller）。
  *
@@ -227,14 +229,31 @@ public class HelloController {
      * @param username 提交人 —— 从 token 取出
      */
     @PostMapping("/submit")
-    public String submit(@RequestParam int no, @RequestParam String content, @RequestAttribute String username) {
+    public String submit(@RequestParam int no,
+                         @RequestParam String content,
+                         @RequestParam(value = "file", required = false) MultipartFile file,
+                         @RequestAttribute String username) throws Exception {
         List<Homework> list = homeworkMapper.findAll();
         if (no < 1 || no > list.size()) {
             return "序号无效，请重新输入";
         }
-        Homework target = list.get(no - 1);          // 序号 → 对应作业
+        Homework target = list.get(no - 1);
         String submitTime = LocalDate.now().toString();
-        submissionMapper.submit(target.getId(), username, content, submitTime);
+
+        // 处理附件：传了文件就保存到 uploads/ 目录，记录文件名
+        String fileName = null;
+        if (file != null && !file.isEmpty()) {
+            fileName = file.getOriginalFilename();
+            // 用绝对路径：明确存到项目目录下的 uploads 文件夹（路径换成你自己的）
+            File dir = new File("D:/IDEA_project/homework_system_sb/demo/uploads");
+            if (!dir.exists()) {
+                dir.mkdirs();   // mkdirs：父目录不存在也会一起创建，比 mkdir 更保险
+            }
+            file.transferTo(new File(dir, fileName));   // File(目录, 文件名) 更规范
+        }
+
+
+        submissionMapper.submit(target.getId(), username, content, submitTime, fileName);
         return "提交成功：" + target.getName();
     }
 
@@ -279,5 +298,6 @@ public class HelloController {
         }
         return result;
     }
+
 
 }
