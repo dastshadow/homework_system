@@ -243,16 +243,14 @@ public class HelloController {
         // 处理附件：传了文件就保存到 uploads/ 目录，记录文件名
         String fileName = null;
         if (file != null && !file.isEmpty()) {
-            fileName = file.getOriginalFilename();
-            // 用绝对路径：明确存到项目目录下的 uploads 文件夹（路径换成你自己的）
+            // 时间戳 + 原文件名，保证唯一不覆盖
+            fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
             File dir = new File("D:/IDEA_project/homework_system_sb/demo/uploads");
             if (!dir.exists()) {
-                dir.mkdirs();   // mkdirs：父目录不存在也会一起创建，比 mkdir 更保险
+                dir.mkdirs();
             }
-            file.transferTo(new File(dir, fileName));   // File(目录, 文件名) 更规范
+            file.transferTo(new File(dir, fileName));
         }
-
-
         submissionMapper.submit(target.getId(), username, content, submitTime, fileName);
         return "提交成功：" + target.getName();
     }
@@ -298,6 +296,38 @@ public class HelloController {
         }
         return result;
     }
-
+    @DeleteMapping("/homework/batch/{ids}")
+    public String batchDelete(@PathVariable String ids){
+        String[] idArray = ids.split(",");
+        int count=0;
+        for(String s:idArray){
+            homeworkMapper.delete(Integer.parseInt(s));
+            count++;
+        }
+        return "批量删除成功，共删除"+count+"条";
+    }
+    @PostMapping("/score/batch")
+    public String batchScore(@RequestParam String ids, @RequestParam int score) {
+        // ids 是 "1,2,3"，score 是统一分数
+        String[] idArray = ids.split(",");
+        int count = 0;
+        for (String s : idArray) {
+            submissionMapper.updateScore(Integer.parseInt(s), score);   // 复用已有的 updateScore
+            count++;
+        }
+        return "批量评分成功，共 " + count + " 条";
+    }
+    //导出作业
+    @GetMapping("/export/homework")
+    public String exportHomework(){
+        List<Homework> list = homeworkMapper.findAll();
+        String csv ="\uFEFF"+"序号,作业名,布置作业,开始时间,截止时间\n";
+        int num=1;
+        for(Homework h: list){
+            csv+=num+","+h.getName()+","+h.getTeacher()+","+h.getStartTime()+","+h.getEndTime()+"\n";
+            num++;
+        }
+        return csv;
+    }
 
 }
