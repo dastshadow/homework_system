@@ -30,4 +30,9 @@ public interface SubmissionMapper {
 
     @Select("select student from submission where homework_id=#{homeworkId}")
     List<String> findStudentsByHomeworkId(@Param("homeworkId") int homeworkId);
+
+    //查某个学生的所有提交
+    @Select("SELECT id, homework_id, student, content, submit_time, score FROM submission WHERE student = #{student}")
+    List<Submission> findByStudent(@Param("student") String student);
+
 }

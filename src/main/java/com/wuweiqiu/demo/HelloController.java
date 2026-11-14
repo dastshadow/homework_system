@@ -262,7 +262,10 @@ public class HelloController {
     public List<Submission> submissions() {
         return submissionMapper.findAll();
     }
-
+    @GetMapping("/submissions/by-student")
+    public List<Submission> submissionsByStudent(@RequestParam String student){
+        return submissionMapper.findByStudent(student);
+    }
     /**
      * 评分（老师用）。
      *
