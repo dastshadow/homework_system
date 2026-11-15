@@ -486,7 +486,7 @@
                 html = "<p style='color:#888;'>该学生还没有任何提交记录。</p>";
             } else {
                 html = "<table class='table'>";
-                html += "<thead><tr><th>提交ID</th><th>作业ID</th><th>内容</th><th>分数</th><th>提交时间</th></tr></thead><tbody>";
+                html += "<thead><tr><th>提交ID</th><th>作业ID</th><th>内容</th><th>分数</th><th>提交时间</th><th>附件</th></tr></thead><tbody>";
                 for (var i = 0; i < list.length; i++) {
                     html += "<tr>";
                     html += "<td>" + list[i].id + "</td>";
@@ -494,6 +494,8 @@
                     html += "<td>" + list[i].content + "</td>";
                     html += "<td>" + (list[i].score || "未评分") + "</td>";
                     html += "<td>" + (list[i].submitTime || "-") + "</td>";
+                    var fileHtml = list[i].fileName ? "<a href='javascript:;' onclick='downloadFile(\"" + list[i].fileName + "\")' style='color:#2e7d32'>下载</a>" : "-";
+                    html += "<td>" + fileHtml + "</td>";
                     html += "</tr>";
                 }
                 html += "</tbody></table>";
@@ -573,7 +575,7 @@
         .then(function (response){ return response.json(); })
         .then(function (list){
             var html = "<table class='table'>";
-            html += "<thead><tr><th>选</th><th>提交ID</th><th>学生</th><th>内容</th><th>分数</th><th>打分</th></tr></thead><tbody>";
+            html += "<thead><tr><th>选</th><th>提交ID</th><th>学生</th><th>内容</th><th>分数</th><th>附件</th><th>打分</th></tr></thead><tbody>";
             for (var i = 0; i < list.length; i++) {
                 html += "<tr>";
                 html += "<td><input type='checkbox' class='subCheck' value='" + list[i].id + "'></td>";
@@ -581,6 +583,8 @@
                 html += "<td>" + list[i].student + "</td>";
                 html += "<td>" + list[i].content + "</td>";
                 html += "<td>" + list[i].score + "</td>";
+                var fileHtml = list[i].fileName ? "<a href='javascript:;' onclick='downloadFile(\"" + list[i].fileName + "\")' style='color:#2e7d32'>下载</a>" : "-";
+                html += "<td>" + fileHtml + "</td>";
                 html += "<td><input id='scoreInput" + list[i].id + "' placeholder='分数' style='width:70px'> "
                      +  "<button class='btn-green-sm' onclick='score(" + list[i].id + ")'>打分</button></td>";
                 html += "</tr>";
@@ -626,6 +630,24 @@
             var link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
             link.download = "作业列表.csv";
+            link.click();
+        });
+    }
+
+    // ============ 下载附件（fetch 带 token） ============
+    function downloadFile(fileName) {
+        var token = localStorage.getItem("token");
+        fetch("/download?fileName=" + encodeURIComponent(fileName), {
+            headers: { "Authorization": "Bearer " + token }
+        })
+        .then(function(response) {
+            if (!response.ok) { alert("下载失败"); return; }
+            return response.blob();   // 文件内容转成 Blob
+        })
+        .then(function(blob) {
+            var link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
             link.click();
         });
     }

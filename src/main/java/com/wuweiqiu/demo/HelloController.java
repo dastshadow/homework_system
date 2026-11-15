@@ -27,6 +27,11 @@ import java.util.List;
 
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.FileSystemResource;
 /**
  * 作业管理系统的「接口层」（Controller）。
  *
@@ -59,6 +64,8 @@ public class HelloController {
     @Value("${deepseek.api-key}")
     private String apiKey;
 
+    @Value("${upload.dir}")
+    private String uploadDir;
     // BCrypt 加密工具：注册时加密密码、登录时验证密码，都用它。
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -245,7 +252,7 @@ public class HelloController {
         if (file != null && !file.isEmpty()) {
             // 时间戳 + 原文件名，保证唯一不覆盖
             fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-            File dir = new File("D:/IDEA_project/homework_system_sb/demo/uploads");
+            File dir = new File(uploadDir);
             if (!dir.exists()) {
                 dir.mkdirs();
             }
@@ -331,6 +338,18 @@ public class HelloController {
             num++;
         }
         return csv;
+    }
+    @GetMapping("/download")
+    public ResponseEntity<Resource> download(@RequestParam String fileName) {
+        File file = new File(uploadDir, fileName);   // 从配置的上传目录找这个文件
+        if (!file.exists()) {
+            return ResponseEntity.notFound().build();   // 文件不存在 → 404
+        }
+        Resource resource = new FileSystemResource(file);
+        // 返回文件，并设置"下载"响应头
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .body(resource);
     }
 
 }

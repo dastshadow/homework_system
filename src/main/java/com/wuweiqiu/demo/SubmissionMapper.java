@@ -21,7 +21,7 @@ public interface SubmissionMapper {
                 @Param("fileName") String fileName);
 
     // 查所有提交记录（老师用来查看 + 评分）
-    @Select("SELECT id, homework_id, student, content, submit_time, score FROM submission")
+    @Select("SELECT id, homework_id, student, content, submit_time, score, file_name FROM submission")
     List<Submission> findAll();
 
     // 给某条提交打分：按提交记录的 id，更新 score 字段
@@ -32,7 +32,7 @@ public interface SubmissionMapper {
     List<String> findStudentsByHomeworkId(@Param("homeworkId") int homeworkId);
 
     //查某个学生的所有提交
-    @Select("SELECT id, homework_id, student, content, submit_time, score FROM submission WHERE student = #{student}")
+    @Select("SELECT id, homework_id, student, content, submit_time, score, file_name FROM submission WHERE student = #{student}")
     List<Submission> findByStudent(@Param("student") String student);
 
 }
