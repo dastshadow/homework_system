@@ -30,6 +30,10 @@ public interface HomeworkMapper {
     @Select("select id,name,teacher,start_time,end_time from homework")
     List<Homework> findAll();
 
+    // 查某个老师布置的所有作业（学生看作业时按老师过滤）
+    @Select("select id, name, teacher, start_time, end_time from homework where teacher = #{teacher}")
+    List<Homework> findByTeacher(@Param("teacher") String teacher);
+
     // 新增一条作业。#{name}、#{teacher} 等占位符，对应下面 @Param 标注的参数。
     @Insert("insert into homework(name,teacher,start_time,end_time) values(#{name},#{teacher},#{startTime},#{endTime})")
     void add(@Param("name") String name, @Param("teacher") String teacher,

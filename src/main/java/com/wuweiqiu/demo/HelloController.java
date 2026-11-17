@@ -24,6 +24,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.ArrayList;
 
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
@@ -82,8 +83,16 @@ public class HelloController {
      * 返回类型是 List<Homework>，Spring 会自动把它转成 JSON 数组给前端。
      */
     @GetMapping("/homework")
-    public List<Homework> homework() {
-        return homeworkMapper.findAll();   // 一行搞定：查所有作业
+    public List<Homework> homework(@RequestAttribute String username) {
+        String role = userMapper.findRoleByUsername(username);   // 查当前用户角色
+        if ("student".equals(role)) {
+            String teacher = userMapper.findTeacherByUsername(username);   // 查这学生选了哪个老师
+            if (teacher == null) {
+                return new ArrayList<>();   // 还没选老师 → 返回空列表
+            }
+            return homeworkMapper.findByTeacher(teacher);   // 只看自己老师的作业
+        }
+        return homeworkMapper.findByTeacher(username);   // 老师 → 看所有作业
     }
 
     /**
@@ -285,27 +294,32 @@ public class HelloController {
         return "评分成功";
     }
     @GetMapping("/completion")
-    public String completion(@RequestParam int no){
-        List<Homework> list = homeworkMapper.findAll();
-        if(no<1||no>list.size()){
+    public String completion(@RequestParam int no, @RequestAttribute String username) {
+        // 作业列表改成"只看自己布置的"（否则序号和自己看到的列表对不上）
+        List<Homework> list = homeworkMapper.findByTeacher(username);
+        if (no < 1 || no > list.size()) {
             return "序号无效，请重新输入";
         }
-        Homework target = list.get(no-1);
+        Homework target = list.get(no - 1);
         int homeworkId = target.getId();
-        //查所有学生
-        List<String>allStudents = userMapper.findAllStudentNames();
-        //查这个作业已交的学生
-        List<String>submitted=submissionMapper.findStudentsByHomeworkId(homeworkId);
+
+        // 改成"只查选了当前老师的学生"，而不是所有学生
+        List<String> allStudents = userMapper.findStudentsByTeacher(username);
+
+        // 查这个作业已交的学生（这行不用动）
+        List<String> submitted = submissionMapper.findStudentsByHomeworkId(homeworkId);
+
         String result = "作业「" + target.getName() + "」完成情况：\n";
-        for(String s:allStudents){
-            if(submitted.contains(s)){
-                result += s+":已交\n";
-            }else {
-                result += s+":未交\n";
+        for (String s : allStudents) {
+            if (submitted.contains(s)) {
+                result += s + "：已交\n";
+            } else {
+                result += s + "：未交\n";
             }
         }
         return result;
     }
+
     @DeleteMapping("/homework/batch/{ids}")
     public String batchDelete(@PathVariable String ids){
         String[] idArray = ids.split(",");
@@ -351,5 +365,22 @@ public class HelloController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
                 .body(resource);
     }
+    @PostMapping("/choose-teacher")
+    public String chooseTeacher(@RequestParam String teacher, @RequestAttribute String username) {
+        String role = userMapper.findRoleByUsername(teacher);   // 查这个"老师"是不是真的老师
+        if (role == null) {
+            return "该用户不存在";
+        }
+        if (!"teacher".equals(role)) {
+            return "该用户不是老师";
+        }
+        userMapper.chooseTeacher(username, teacher);   // 把这个学生和老师绑定
+        return "选择老师成功：" + teacher;
+    }
+    @GetMapping("/my-students")
+    public List<String> myStudents(@RequestAttribute String username) {
+        return userMapper.findStudentsByTeacher(username);
+    }
+
 
 }

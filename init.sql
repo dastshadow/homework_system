@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS user (
     id INT PRIMARY KEY AUTO_INCREMENT,   -- 主键
     username VARCHAR(50),                -- 用户名
     password VARCHAR(100),               -- 密码（BCrypt 加密后的密文）
-    role VARCHAR(20)                     -- 角色：student / teacher
+    role VARCHAR(20),                    -- 角色：student / teacher
+    teacher VARCHAR(50)                  -- 学生选了哪个老师（老师用户名；老师角色不用）
 );
 
 -- 提交表：学生提交记录

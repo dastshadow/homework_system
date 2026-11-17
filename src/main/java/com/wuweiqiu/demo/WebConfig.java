@@ -16,7 +16,8 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new LoginInterceptor())                        // 注册拦截器
-                .addPathPatterns("/homework/**", "/check", "/submit", "/submissions/**", "/score", "/completion", "/download") // 要拦的路径（这些需要登录）
+                .addPathPatterns("/homework/**", "/check", "/submit", "/submissions/**", "/score", "/completion", "/download", "/choose-teacher", "/my-students")// 要拦的路径（这些需要登录）
+
                 .excludePathPatterns("/login", "/register");                    // 放行的路径（登录/注册不用拦）
     }
 }

@@ -242,6 +242,11 @@
                     </div>
                     <div id="homeworklist"></div>
                 </div>
+
+                <div class="panel-card">
+                    <div class="card-title">我的学生</div>
+                    <div id="myStudentsList"></div>
+                </div>
             </div>
 
             <!-- ===== AI 题库检查（老师） ===== -->
@@ -273,6 +278,13 @@
             <!-- ===== 提交作业（学生） ===== -->
             <div id="tab-submit" class="tab-panel">
                 <h2>提交作业</h2>
+                <div class="panel-card">
+                    <div class="card-title">选择老师</div>
+                    <div class="form-row">
+                        <input id="teacherInput" placeholder="输入老师用户名">
+                        <button class="btn-green" onclick="chooseTeacher()">选择老师</button>
+                    </div>
+                </div>
                 <div class="panel-card">
                     <div class="card-title">填写提交内容（可选附件）</div>
                     <div class="form-row">
@@ -351,6 +363,9 @@
                 showByRole();
                 loadHomework();
                 loadSubmissions();
+                if (parts[1] === "teacher") {
+                    loadMyStudents();
+                }
             });
     }
 
@@ -672,6 +687,44 @@
         });
     }
 
+    // ============ 学生选老师 ============
+    function chooseTeacher() {
+        var teacher = document.getElementById("teacherInput").value;
+        if (teacher === "") { alert("请输入老师用户名"); return; }
+        var token = localStorage.getItem("token");
+        fetch("/choose-teacher?teacher=" + encodeURIComponent(teacher), {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + token }
+        })
+        .then(function(response) { return response.text(); })
+        .then(function(data) {
+            alert(data);
+            loadHomework();   // 选完老师刷新作业列表
+        });
+    }
+
+    // ============ 老师查看我的学生 ============
+    function loadMyStudents() {
+        var token = localStorage.getItem("token");
+        fetch("/my-students", {
+            headers: { "Authorization": "Bearer " + token }
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(list) {
+            var html = "";
+            if (list.length === 0) {
+                html = "<p style='color:#888;'>还没有学生选你。</p>";
+            } else {
+                html = "<ul style='padding-left:20px; margin:0;'>";
+                for (var i = 0; i < list.length; i++) {
+                    html += "<li>" + list[i] + "</li>";
+                }
+                html += "</ul>";
+            }
+            document.getElementById("myStudentsList").innerHTML = html;
+        });
+    }
+
     // ============ 页面加载 ============
     (function () {
         var token = localStorage.getItem("token");
@@ -680,6 +733,9 @@
             showByRole();
             loadHomework();
             loadSubmissions();
+            if (localStorage.getItem("role") === "teacher") {
+                loadMyStudents();
+            }
         }
     })();
 </script>
