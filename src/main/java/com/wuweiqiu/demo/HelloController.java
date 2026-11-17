@@ -16,6 +16,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.node.ArrayNode;
@@ -33,6 +34,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.FileSystemResource;
+
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.time.Duration;
 /**
  * 作业管理系统的「接口层」（Controller）。
  *
@@ -60,6 +64,10 @@ public class HelloController {
     @Autowired
     private SubmissionMapper submissionMapper;  // 提交表的数据操作
 
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+
     // @Value = 从 application.properties 里读出配置项的值。
     // "${deepseek.api-key}" 会被替换成配置文件里 deepseek.api-key= 后面的值（即 API Key）。
     @Value("${deepseek.api-key}")
@@ -83,17 +91,40 @@ public class HelloController {
      * 返回类型是 List<Homework>，Spring 会自动把它转成 JSON 数组给前端。
      */
     @GetMapping("/homework")
-    public List<Homework> homework(@RequestAttribute String username) {
-        String role = userMapper.findRoleByUsername(username);   // 查当前用户角色
+    public List<Homework> homework(@RequestAttribute String username) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+
+        // 先确定"这次要查哪个老师的作业"：学生 = 他选的老师；老师 = 他自己
+        String role = userMapper.findRoleByUsername(username);
+        String targetTeacher;
         if ("student".equals(role)) {
-            String teacher = userMapper.findTeacherByUsername(username);   // 查这学生选了哪个老师
-            if (teacher == null) {
-                return new ArrayList<>();   // 还没选老师 → 返回空列表
+            targetTeacher = userMapper.findTeacherByUsername(username);
+            if (targetTeacher == null) {
+                return new ArrayList<>();   // 学生还没选老师 → 空列表
             }
-            return homeworkMapper.findByTeacher(teacher);   // 只看自己老师的作业
+        } else {
+            targetTeacher = username;
         }
-        return homeworkMapper.findByTeacher(username);   // 老师 → 看所有作业
+
+        // 缓存 key 用"目标老师"（老师和选他的学生共享同一份缓存）
+        String cacheKey = "homework:list:" + targetTeacher;
+
+        // 先查缓存
+        String cached = stringRedisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            return mapper.readValue(cached, new TypeReference<List<Homework>>() {});
+        }
+
+        // 未命中，查数据库
+        List<Homework> list = homeworkMapper.findByTeacher(targetTeacher);
+
+        // 写回缓存（1 分钟过期）
+        stringRedisTemplate.opsForValue().set(cacheKey, mapper.writeValueAsString(list), Duration.ofMinutes(1));
+
+        return list;
     }
+
+
 
     /**
      * 添加作业（老师用）。
@@ -105,15 +136,15 @@ public class HelloController {
      */
     @PostMapping("/homework/add")
     public String add(@RequestParam String name, @RequestParam String endTime, @RequestAttribute String username) {
-        // 开始时间不用老师填，自动记成「今天」。
         String startTime = LocalDate.now().toString();
-        // 老师没选截止时间时，默认一周后。
         if (endTime == null || endTime.isEmpty()) {
             endTime = LocalDate.now().plusDays(7).toString();
         }
         homeworkMapper.add(name, username, startTime, endTime);
+        stringRedisTemplate.delete("homework:list:" + username);   // 数据变了，删缓存
         return "添加成功:" + name;
     }
+
 
     /**
      * 删除作业（老师用）。
@@ -121,15 +152,14 @@ public class HelloController {
      * @param no 用户看到的「序号」（1、2、3……），不是数据库里的 id。
      */
     @DeleteMapping("/homework/{no}")
-    public String delete(@PathVariable int no) {
-        List<Homework> list = homeworkMapper.findAll();
-        // 边界保护：序号必须在 1 ~ 列表长度 之间。
+    public String delete(@PathVariable int no, @RequestAttribute String username) {
+        List<Homework> list = homeworkMapper.findByTeacher(username);   // 改：按老师自己的作业定位（原来 findAll 是 bug）
         if (no < 1 || no > list.size()) {
             return "序号无效，请重新输入";
         }
-        // 序号 → 对应元素 → 拿它真实的 id 去删。
         Homework target = list.get(no - 1);
         homeworkMapper.delete(target.getId());
+        stringRedisTemplate.delete("homework:list:" + username);   // 删缓存
         return "删除成功:" + target.getName();
     }
 
@@ -140,15 +170,17 @@ public class HelloController {
      * @param name 新名字
      */
     @PutMapping("/homework/{no}")
-    public String update(@PathVariable int no, @RequestParam String name) {
-        List<Homework> list = homeworkMapper.findAll();
+    public String update(@PathVariable int no, @RequestParam String name, @RequestAttribute String username) {
+        List<Homework> list = homeworkMapper.findByTeacher(username);   // 改：按老师自己的作业定位
         if (no < 1 || no > list.size()) {
             return "序号无效，请重新输入";
         }
         Homework target = list.get(no - 1);
         homeworkMapper.update(target.getId(), name);
+        stringRedisTemplate.delete("homework:list:" + username);   // 删缓存
         return "修改成功:" + name;
     }
+
 
     /**
      * 注册。
@@ -249,7 +281,12 @@ public class HelloController {
                          @RequestParam String content,
                          @RequestParam(value = "file", required = false) MultipartFile file,
                          @RequestAttribute String username) throws Exception {
-        List<Homework> list = homeworkMapper.findAll();
+        // 学生提交，序号要按"自己老师的作业"定位（原来 findAll 会定位到所有作业，序号错位）
+        String teacher = userMapper.findTeacherByUsername(username);
+        if (teacher == null) {
+            return "请先选择老师";
+        }
+        List<Homework> list = homeworkMapper.findByTeacher(teacher);
         if (no < 1 || no > list.size()) {
             return "序号无效，请重新输入";
         }
@@ -321,15 +358,17 @@ public class HelloController {
     }
 
     @DeleteMapping("/homework/batch/{ids}")
-    public String batchDelete(@PathVariable String ids){
+    public String batchDelete(@PathVariable String ids, @RequestAttribute String username) {
         String[] idArray = ids.split(",");
-        int count=0;
-        for(String s:idArray){
+        int count = 0;
+        for (String s : idArray) {
             homeworkMapper.delete(Integer.parseInt(s));
             count++;
         }
-        return "批量删除成功，共删除"+count+"条";
+        stringRedisTemplate.delete("homework:list:" + username);   // 删缓存
+        return "批量删除成功，共删除" + count + "条";
     }
+
     @PostMapping("/score/batch")
     public String batchScore(@RequestParam String ids, @RequestParam int score) {
         // ids 是 "1,2,3"，score 是统一分数
@@ -341,18 +380,19 @@ public class HelloController {
         }
         return "批量评分成功，共 " + count + " 条";
     }
-    //导出作业
+    // 导出作业（老师只导出自己的作业）
     @GetMapping("/export/homework")
-    public String exportHomework(){
-        List<Homework> list = homeworkMapper.findAll();
-        String csv ="\uFEFF"+"序号,作业名,布置作业,开始时间,截止时间\n";
-        int num=1;
-        for(Homework h: list){
-            csv+=num+","+h.getName()+","+h.getTeacher()+","+h.getStartTime()+","+h.getEndTime()+"\n";
+    public String exportHomework(@RequestAttribute String username) {
+        List<Homework> list = homeworkMapper.findByTeacher(username);   // 只导出自己的作业
+        String csv = "\uFEFF" + "序号,作业名,布置老师,开始时间,截止时间\n";   // 顺手把"布置作业"改成"布置老师"
+        int num = 1;
+        for (Homework h : list) {
+            csv += num + "," + h.getName() + "," + h.getTeacher() + "," + h.getStartTime() + "," + h.getEndTime() + "\n";
             num++;
         }
         return csv;
     }
+
     @GetMapping("/download")
     public ResponseEntity<Resource> download(@RequestParam String fileName) {
         File file = new File(uploadDir, fileName);   // 从配置的上传目录找这个文件
@@ -380,6 +420,14 @@ public class HelloController {
     @GetMapping("/my-students")
     public List<String> myStudents(@RequestAttribute String username) {
         return userMapper.findStudentsByTeacher(username);
+    }
+    @GetMapping("/redis/test")
+    public String redisTest() {
+        // 存一个键值对：key=hello，value=world，60 秒后过期
+        stringRedisTemplate.opsForValue().set("hello", "world", Duration.ofSeconds(60));
+        // 再读出来
+        String value = stringRedisTemplate.opsForValue().get("hello");
+        return "从 Redis 读到的 hello = " + value;
     }
 
 
