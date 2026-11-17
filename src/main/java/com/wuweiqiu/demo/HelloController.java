@@ -37,6 +37,8 @@ import org.springframework.core.io.FileSystemResource;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
 import java.time.Duration;
+
+import jakarta.servlet.http.HttpServletRequest;
 /**
  * 作业管理系统的「接口层」（Controller）。
  *
@@ -225,6 +227,17 @@ public class HelloController {
         } else {
             return "密码错误";
         }
+    }
+
+    @PostMapping("/logout")
+    public String logout(HttpServletRequest request) {
+        String token = request.getHeader("Authorization");
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+            // 把 token 加入黑名单，TTL 24 小时（= token 有效期，过期后黑名单也自动清理）
+            stringRedisTemplate.opsForValue().set("blacklist:" + token, "1", Duration.ofHours(24));
+        }
+        return "已退出登录";
     }
 
     /**

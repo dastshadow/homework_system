@@ -371,9 +371,24 @@
 
     // ============ 退出登录 ============
     function logout() {
-        localStorage.removeItem("token");
-        localStorage.removeItem("role");
-        location.reload();
+        var token = localStorage.getItem("token");
+        if (token) {
+            // 先调 /logout 接口，把这个 token 加入后端黑名单（让它真正失效）
+            fetch("/logout", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            })
+            .then(function(response) { return response.text(); })
+            .then(function(data) {
+                // 无论后端返回什么，都清掉前端存的 token/role，刷新回登录页
+                localStorage.removeItem("token");
+                localStorage.removeItem("role");
+                location.reload();
+            });
+        } else {
+            // 本来就没登录，直接刷新
+            location.reload();
+        }
     }
 
     function enterMain() {
