@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS user (
     username VARCHAR(50),                -- 用户名
     password VARCHAR(100),               -- 密码（BCrypt 加密后的密文）
     role VARCHAR(20),                    -- 角色：student / teacher
-    teacher VARCHAR(50)                  -- 学生选了哪个老师（老师用户名；老师角色不用）
+    teacher VARCHAR(50),                 -- 学生选了哪个老师（老师用户名；老师角色不用）
+    api_key VARCHAR(200)                 -- 老师的 DeepSeek API Key（自己接 AI 用）
 );
 
 -- 提交表：学生提交记录

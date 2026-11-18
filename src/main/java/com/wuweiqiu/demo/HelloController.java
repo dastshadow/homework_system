@@ -39,6 +39,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.time.Duration;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+import java.util.Base64;
 /**
  * 作业管理系统的「接口层」（Controller）。
  *
@@ -71,14 +75,14 @@ public class HelloController {
 
 
     // @Value = 从 application.properties 里读出配置项的值。
-    // "${deepseek.api-key}" 会被替换成配置文件里 deepseek.api-key= 后面的值（即 API Key）。
-    @Value("${deepseek.api-key}")
-    private String apiKey;
 
     @Value("${upload.dir}")
     private String uploadDir;
     // BCrypt 加密工具：注册时加密密码、登录时验证密码，都用它。
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    @Value("${api-key.aes-secret}")
+    private String aesSecret;
 
     /**
      * 测试接口：访问 /hello 返回一句话，用来验证服务器能正常响应。
@@ -239,6 +243,12 @@ public class HelloController {
         }
         return "已退出登录";
     }
+    //保存老师的API key,不烧我自己的token了
+    @PostMapping("/save-api-key")
+    public String saveApiKey(@RequestParam String apiKey, @RequestAttribute String username) throws Exception {
+        userMapper.saveApiKey(username, encrypt(apiKey));   // 加密后存，不存明文
+        return "API Key 保存成功";
+    }
 
     /**
      * AI 题库检查（老师用）。
@@ -246,7 +256,13 @@ public class HelloController {
      * 再把 AI 的回复从返回的 JSON 里抠出来返回。
      */
     @PostMapping("/check")
-    public String check(@RequestParam String question) throws Exception {
+    public String check(@RequestParam String question, @RequestAttribute String username) throws Exception {
+        // 查这个老师自己的 API Key（用他自己的，不用配置里那个）
+        String apiKey = userMapper.findApiKeyByUsername(username);
+        if (apiKey == null || apiKey.isEmpty()) {
+            return "请先设置你的 API Key";
+        }
+        apiKey = decrypt(apiKey);
         // ① 拼 prompt：告诉 AI「你是题库审核员，检查下面题目」。
         String prompt = "你是一位严谨的题库审核员。请检查下面的题目，重点检查：\n" +
                 "1. 答案选项是否在选项中\n" +
@@ -276,6 +292,11 @@ public class HelloController {
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        // ④ 如果 DeepSeek 返回的不是 200（比如 key 错误返回 401），返回友好错误，别硬解析
+        if (response.statusCode() != 200) {
+            return "AI 调用失败（状态码 " + response.statusCode() + "），请检查你的 API Key 是否正确";
+        }
 
         // ④ 解析返回 JSON，按路径 choices → [0] → message → content 抠出 AI 回答。
         JsonNode root = mapper.readTree(response.body());
@@ -441,6 +462,23 @@ public class HelloController {
         // 再读出来
         String value = stringRedisTemplate.opsForValue().get("hello");
         return "从 Redis 读到的 hello = " + value;
+    }
+    // AES 加密（保存 key 时用）：把明文 key 加密成密文
+    private String encrypt(String plain) throws Exception {
+        SecretKeySpec key = new SecretKeySpec(aesSecret.getBytes("UTF-8"), "AES");
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        byte[] encrypted = cipher.doFinal(plain.getBytes("UTF-8"));
+        return Base64.getEncoder().encodeToString(encrypted);   // 二进制转 base64 文本，才能存 varchar
+    }
+
+    // AES 解密（调用 AI 时用）：把密文还原成明文 key
+    private String decrypt(String cipherText) throws Exception {
+        SecretKeySpec key = new SecretKeySpec(aesSecret.getBytes("UTF-8"), "AES");
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.DECRYPT_MODE, key);
+        byte[] decrypted = cipher.doFinal(Base64.getDecoder().decode(cipherText));
+        return new String(decrypted, "UTF-8");
     }
 
 

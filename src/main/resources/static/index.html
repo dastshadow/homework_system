@@ -253,6 +253,11 @@
             <div id="tab-ai" class="tab-panel">
                 <h2>AI 题库检查</h2>
                 <div class="panel-card">
+                    <div class="card-title">你的 DeepSeek API Key（用你自己的，不共用）</div>
+                    <div style="display:flex; gap:10px; margin-bottom:16px;">
+                        <input id="apiKeyInput" placeholder="粘贴你的 DeepSeek API Key（sk- 开头）" style="flex:1; border:1px solid #d7e2d7; border-radius:8px; padding:10px; font-size:14px;">
+                        <button class="btn-green" onclick="saveApiKey()">保存 Key</button>
+                    </div>
                     <div class="card-title">粘贴题目，让 AI 检查格式与答案</div>
                     <textarea id="questionInput" placeholder="粘贴题目：题干 + 选项 + 答案" rows="6" style="width:100%; border:1px solid #d7e2d7; border-radius:8px; padding:12px; font-size:14px;"></textarea>
                     <div style="margin-top:14px">
@@ -590,9 +595,25 @@
     }
 
     // ============ AI 题库检查 ============
+    function saveApiKey(){
+        var apiKey = document.getElementById("apiKeyInput").value;
+        if (!apiKey) { alert("请先填写 API Key"); return; }
+        var token = localStorage.getItem("token");
+        fetch("/save-api-key?apiKey="+encodeURIComponent(apiKey), {
+            method:"POST",
+            headers:{"Authorization":"Bearer "+token}
+        })
+        .then(function(response){ return response.text(); })
+        .then(function(data){ alert(data); });
+    }
+
     function checkQuestion(){
         var question = document.getElementById("questionInput").value;
-        fetch("/check?question="+encodeURIComponent(question), { method:"POST" })
+        var token = localStorage.getItem("token");
+        fetch("/check?question="+encodeURIComponent(question), {
+            method:"POST",
+            headers:{"Authorization":"Bearer "+token}
+        })
         .then(function (response){ return response.text(); })
         .then(function (data){ document.getElementById("checkResult").innerHTML = data; });
     }

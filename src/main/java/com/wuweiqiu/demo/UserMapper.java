@@ -40,4 +40,11 @@ public interface UserMapper {
     @Select("select username from user where teacher = #{teacher} and role = 'student'")
     List<String> findStudentsByTeacher(@Param("teacher") String teacher);
 
+    // 保存老师的 DeepSeek API Key
+    @Update("update user set api_key = #{apiKey} where username = #{username}")
+    void saveApiKey(@Param("username") String username, @Param("apiKey") String apiKey);
+
+    // 查某个用户的 API Key（没设置则 null）
+    @Select("select api_key from user where username = #{username}")
+    String findApiKeyByUsername(@Param("username") String username);
 }
