@@ -73,6 +73,8 @@ public class HelloController {
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
+    @Autowired
+    private StudentTeacherMapper studentTeacherMapper;
 
     // @Value = 从 application.properties 里读出配置项的值。
 
@@ -98,37 +100,33 @@ public class HelloController {
      */
     @GetMapping("/homework")
     public List<Homework> homework(@RequestAttribute String username) throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
-
-        // 先确定"这次要查哪个老师的作业"：学生 = 他选的老师；老师 = 他自己
         String role = userMapper.findRoleByUsername(username);
-        String targetTeacher;
         if ("student".equals(role)) {
-            targetTeacher = userMapper.findTeacherByUsername(username);
-            if (targetTeacher == null) {
-                return new ArrayList<>();   // 学生还没选老师 → 空列表
+            // 学生：查他选的所有老师，合并这些老师的作业
+            List<String> teachers = studentTeacherMapper.findTeachersByStudent(username);
+            List<Homework> result = new ArrayList<>();
+            for (String t : teachers) {
+                result.addAll(getHomeworkByTeacher(t));   // 每个老师走缓存
             }
-        } else {
-            targetTeacher = username;
+            return result;
         }
+        // 老师：查自己的作业
+        return getHomeworkByTeacher(username);
+    }
 
-        // 缓存 key 用"目标老师"（老师和选他的学生共享同一份缓存）
-        String cacheKey = "homework:list:" + targetTeacher;
-
-        // 先查缓存
+    // 查某个老师的作业（带缓存）。学生和老师都用它，缓存按"老师"存。
+    private List<Homework> getHomeworkByTeacher(String teacher) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        String cacheKey = "homework:list:" + teacher;
         String cached = stringRedisTemplate.opsForValue().get(cacheKey);
         if (cached != null) {
             return mapper.readValue(cached, new TypeReference<List<Homework>>() {});
         }
-
-        // 未命中，查数据库
-        List<Homework> list = homeworkMapper.findByTeacher(targetTeacher);
-
-        // 写回缓存（1 分钟过期）
+        List<Homework> list = homeworkMapper.findByTeacher(teacher);
         stringRedisTemplate.opsForValue().set(cacheKey, mapper.writeValueAsString(list), Duration.ofMinutes(1));
-
         return list;
     }
+
 
 
 
@@ -316,11 +314,15 @@ public class HelloController {
                          @RequestParam(value = "file", required = false) MultipartFile file,
                          @RequestAttribute String username) throws Exception {
         // 学生提交，序号要按"自己老师的作业"定位（原来 findAll 会定位到所有作业，序号错位）
-        String teacher = userMapper.findTeacherByUsername(username);
-        if (teacher == null) {
+        List<String> teachers = studentTeacherMapper.findTeachersByStudent(username);
+        if (teachers.isEmpty()) {
             return "请先选择老师";
         }
-        List<Homework> list = homeworkMapper.findByTeacher(teacher);
+        List<Homework> list = new ArrayList<>();
+        for (String t : teachers) {
+            list.addAll(homeworkMapper.findByTeacher(t));   // 合并多个老师的作业
+        }
+
         if (no < 1 || no > list.size()) {
             return "序号无效，请重新输入";
         }
@@ -375,7 +377,7 @@ public class HelloController {
         int homeworkId = target.getId();
 
         // 改成"只查选了当前老师的学生"，而不是所有学生
-        List<String> allStudents = userMapper.findStudentsByTeacher(username);
+        List<String> allStudents = studentTeacherMapper.findStudentsByTeacher(username);
 
         // 查这个作业已交的学生（这行不用动）
         List<String> submitted = submissionMapper.findStudentsByHomeworkId(homeworkId);
@@ -448,12 +450,15 @@ public class HelloController {
         if (!"teacher".equals(role)) {
             return "该用户不是老师";
         }
-        userMapper.chooseTeacher(username, teacher);   // 把这个学生和老师绑定
+        if (studentTeacherMapper.countRelation(username, teacher) > 0) {
+            return "你已经选过这位老师了";
+        }
+        studentTeacherMapper.addRelation(username, teacher);   // 往关联表插一条
         return "选择老师成功：" + teacher;
     }
     @GetMapping("/my-students")
     public List<String> myStudents(@RequestAttribute String username) {
-        return userMapper.findStudentsByTeacher(username);
+        return studentTeacherMapper.findStudentsByTeacher(username);
     }
     @GetMapping("/redis/test")
     public String redisTest() {

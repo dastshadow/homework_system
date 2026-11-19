@@ -28,18 +28,6 @@ public interface UserMapper {
     @Select("select username from user where role='student'")
     List<String> findAllStudentNames();
 
-    // 查某个学生选了哪个老师（返回老师用户名，没选则 null）
-    @Select("select teacher from user where username = #{username}")
-    String findTeacherByUsername(@Param("username") String username);
-
-    // 学生选老师：把该学生的 teacher 字段更新成老师的用户名
-    @Update("update user set teacher = #{teacher} where username = #{username}")
-    void chooseTeacher(@Param("username") String username, @Param("teacher") String teacher);
-
-    // 查某个老师名下的所有学生（选了该老师的学生用户名列表）
-    @Select("select username from user where teacher = #{teacher} and role = 'student'")
-    List<String> findStudentsByTeacher(@Param("teacher") String teacher);
-
     // 保存老师的 DeepSeek API Key
     @Update("update user set api_key = #{apiKey} where username = #{username}")
     void saveApiKey(@Param("username") String username, @Param("apiKey") String apiKey);

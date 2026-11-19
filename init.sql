@@ -35,3 +35,10 @@ CREATE TABLE IF NOT EXISTS submission (
     score INT,                           -- 得分（老师评分后才有）
     file_name VARCHAR(200)               -- 附件文件名（时间戳_原名，可为空）
 );
+
+-- 师生关联表：多对多（一个学生选多个老师，一个老师有多个学生）
+CREATE TABLE IF NOT EXISTS student_teacher (
+    id INT PRIMARY KEY AUTO_INCREMENT,   -- 主键
+    student VARCHAR(50),                 -- 学生用户名
+    teacher VARCHAR(50)                  -- 老师用户名
+);
