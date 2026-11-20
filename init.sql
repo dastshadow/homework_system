@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS homework (
     name VARCHAR(100),                   -- 作业名
     teacher VARCHAR(50),                 -- 布置老师（用户名）
     start_time VARCHAR(50),              -- 开始时间（发布日期）
-    end_time VARCHAR(50)                 -- 截止时间
+    end_time VARCHAR(50),                -- 截止时间
+    file_name VARCHAR(200)               -- 作业要求附件（文件名，可为空）
 );
 
 -- 用户表：学生 / 教师

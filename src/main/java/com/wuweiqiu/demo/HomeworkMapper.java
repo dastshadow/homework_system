@@ -27,17 +27,18 @@ import java.util.List;
 public interface HomeworkMapper {
 
     // 查所有作业。返回 List<Homework>，MyBatis 自动把每行数据装进 Homework 对象。
-    @Select("select id,name,teacher,start_time,end_time from homework")
+    @Select("select id,name,teacher,start_time,end_time,file_name from homework")
     List<Homework> findAll();
 
     // 查某个老师布置的所有作业（学生看作业时按老师过滤）
-    @Select("select id, name, teacher, start_time, end_time from homework where teacher = #{teacher}")
+    @Select("select id, name, teacher, start_time, end_time, file_name from homework where teacher = #{teacher}")
     List<Homework> findByTeacher(@Param("teacher") String teacher);
 
     // 新增一条作业。#{name}、#{teacher} 等占位符，对应下面 @Param 标注的参数。
-    @Insert("insert into homework(name,teacher,start_time,end_time) values(#{name},#{teacher},#{startTime},#{endTime})")
+    @Insert("insert into homework(name,teacher,start_time,end_time,file_name) values(#{name},#{teacher},#{startTime},#{endTime},#{fileName})")
     void add(@Param("name") String name, @Param("teacher") String teacher,
-             @Param("startTime") String startTime, @Param("endTime") String endTime);
+             @Param("startTime") String startTime, @Param("endTime") String endTime,
+             @Param("fileName") String fileName);
 
     // 按 id 删除。只有一个参数时，可以不写 @Param（MyBatis 自动对应 #{id}）。
     @Delete("delete from homework where id = #{id}")
@@ -46,4 +47,6 @@ public interface HomeworkMapper {
     // 按 id 修改作业名。
     @Update("UPDATE homework SET name = #{name} where id = #{id}")
     void update(@Param("id") int id, @Param("name") String name);
+
+
 }

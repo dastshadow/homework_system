@@ -32,7 +32,15 @@ public interface SubmissionMapper {
     List<String> findStudentsByHomeworkId(@Param("homeworkId") int homeworkId);
 
     //查某个学生的所有提交
-    @Select("SELECT id, homework_id, student, content, submit_time, score, file_name FROM submission WHERE student = #{student}")
+    @Select("select s.id, s.homework_id, s.student, s.content, s.submit_time, s.score, s.file_name, h.name as homework_name from submission s join homework h on s.homework_id = h.id where s.student = #{student}")
     List<Submission> findByStudent(@Param("student") String student);
+
+    // 查某个老师布置的作业的所有提交（JOIN homework，只看自己的）
+    @Select("select s.id, s.homework_id, s.student, s.content, s.submit_time, s.score, s.file_name, h.name as homework_name from submission s join homework h on s.homework_id = h.id where h.teacher = #{teacher}")
+    List<Submission> findByTeacher(@Param("teacher") String teacher);
+
+    // 查某条提交对应的作业是哪个老师布置的（用于校验评分权限）
+    @Select("select h.teacher from submission s join homework h on s.homework_id = h.id where s.id = #{id}")
+    String findTeacherBySubmissionId(@Param("id") int id);
 
 }

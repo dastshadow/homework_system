@@ -19,6 +19,7 @@ public class Homework {
     private String teacher;   // 布置老师（用户名）
     private String startTime; // 开始时间（发布日期）
     private String endTime;   // 截止时间
+    private String fileName;   // 作业要求的附件文件名（可为空）
 
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
@@ -34,4 +35,7 @@ public class Homework {
 
     public String getEndTime() { return endTime; }
     public void setEndTime(String endTime) { this.endTime = endTime; }
+
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
 }

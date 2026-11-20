@@ -12,7 +12,7 @@ public class Submission {
     private String submitTime; // 提交时间
     private int score;         // 得分（老师评分后才有）
     private String fileName;   // 上传的附件名
-
+    private String homeworkName;   // 作业名（JOIN homework 表查出来的，不是 submission 表本身的列）
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
@@ -37,4 +37,7 @@ public class Submission {
     public void setFileName(String fileName) {
         this.fileName = fileName;
     }
+
+    public String getHomeworkName() { return homeworkName; }
+    public void setHomeworkName(String homeworkName) { this.homeworkName = homeworkName; }
 }

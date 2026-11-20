@@ -34,3 +34,6 @@ build/
 
 application.properties
 
+# 上传的附件目录（学生提交的附件、老师作业要求的附件）
+uploads/
+

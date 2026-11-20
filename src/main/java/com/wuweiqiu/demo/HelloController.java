@@ -139,15 +139,28 @@ public class HelloController {
      *                 这里用 @RequestAttribute 把它拿出来
      */
     @PostMapping("/homework/add")
-    public String add(@RequestParam String name, @RequestParam String endTime, @RequestAttribute String username) {
+    public String add(@RequestParam String name, @RequestParam String endTime,
+                      @RequestParam(value = "file", required = false) MultipartFile file,
+                      @RequestAttribute String username) throws Exception {
         String startTime = LocalDate.now().toString();
         if (endTime == null || endTime.isEmpty()) {
             endTime = LocalDate.now().plusDays(7).toString();
         }
-        homeworkMapper.add(name, username, startTime, endTime);
+        // 处理作业要求的附件：传了文件就保存，记录文件名（和学生提交附件一模一样）
+        String fileName = null;
+        if (file != null && !file.isEmpty()) {
+            fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            File dir = new File(uploadDir);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            file.transferTo(new File(dir, fileName));
+        }
+        homeworkMapper.add(name, username, startTime, endTime, fileName);
         stringRedisTemplate.delete("homework:list:" + username);   // 数据变了，删缓存
         return "添加成功:" + name;
     }
+
 
 
     /**
@@ -193,6 +206,9 @@ public class HelloController {
      */
     @PostMapping("/register")
     public String register(@RequestParam String username, @RequestParam String password) {
+        if (userMapper.countByUsername(username) > 0) {
+            return "用户名已存在，请换一个";
+        }
         // 密码先用 BCrypt 加密成乱码再存，数据库泄露也看不出明文。
         userMapper.register(username, passwordEncoder.encode(password), "student");
         return "注册成功:" + username;
@@ -348,8 +364,8 @@ public class HelloController {
      * 查看所有提交记录（老师用）。
      */
     @GetMapping("/submissions")
-    public List<Submission> submissions() {
-        return submissionMapper.findAll();
+    public List<Submission> submissions(@RequestAttribute String username) {
+        return submissionMapper.findByTeacher(username);   // 只看自己作业的提交
     }
     @GetMapping("/submissions/by-student")
     public List<Submission> submissionsByStudent(@RequestParam String student){
@@ -362,7 +378,11 @@ public class HelloController {
      * @param score 分数
      */
     @PostMapping("/score")
-    public String score(@RequestParam int id, @RequestParam int score) {
+    public String score(@RequestParam int id, @RequestParam int score, @RequestAttribute String username) {
+        String teacher = submissionMapper.findTeacherBySubmissionId(id);
+        if (teacher == null || !teacher.equals(username)) {
+            return "不能给其他老师的作业评分";
+        }
         submissionMapper.updateScore(id, score);
         return "评分成功";
     }
@@ -486,5 +506,34 @@ public class HelloController {
         return new String(decrypted, "UTF-8");
     }
 
+    @GetMapping("/my-submissions")
+    public List<Submission> mySubmissions(@RequestAttribute String username) {
+        return submissionMapper.findByStudent(username);   // 查自己的提交（带作业名 + 分数）
+    }
+
+    // 列出所有老师（学生选老师时展示用）
+    @GetMapping("/teachers")
+    public List<String> teachers() {
+        return userMapper.findAllTeacherNames();
+    }
+
+    // 列出所有学生（老师选学生时展示用）
+    @GetMapping("/students")
+    public List<String> students() {
+        return userMapper.findAllStudentNames();
+    }
+
+    // 老师选学生（和学生选老师对称）
+    @PostMapping("/choose-student")
+    public String chooseStudent(@RequestParam String student, @RequestAttribute String username) {
+        if (!"teacher".equals(userMapper.findRoleByUsername(username))) {
+            return "只有老师能选学生";
+        }
+        if (studentTeacherMapper.countRelation(student, username) > 0) {
+            return "已经选过这个学生了";
+        }
+        studentTeacherMapper.addRelation(student, username);
+        return "选择学生成功：" + student;
+    }
 
 }

@@ -35,4 +35,13 @@ public interface UserMapper {
     // 查某个用户的 API Key（没设置则 null）
     @Select("select api_key from user where username = #{username}")
     String findApiKeyByUsername(@Param("username") String username);
+
+    // 查所有老师（用户名列表）
+    @Select("select username from user where role='teacher'")
+    List<String> findAllTeacherNames();
+
+    // 查用户名是否存在（注册时防重名用）
+    @Select("select count(*) from user where username = #{username}")
+    int countByUsername(@Param("username") String username);
+
 }
